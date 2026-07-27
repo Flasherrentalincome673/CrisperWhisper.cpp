@@ -8,8 +8,11 @@
 ![CLI](https://img.shields.io/badge/interface-CLI%20%2B%20C%2B%2B%20API-orange)
 [![Release](https://img.shields.io/badge/release-v1.0.0-blueviolet)](https://github.com/Saganaki22/CrisperWhisper.cpp/tree/v1.0.0)
 [![Benchmarks](https://img.shields.io/badge/benchmarks-cold%20%7C%20warm%20%7C%20long--form-8A2BE2)](BENCHMARKS.md)
+[![Paper](https://img.shields.io/badge/arXiv-2607.18934-B31B1B?logo=arxiv)](https://arxiv.org/abs/2607.18934)
+[![Models](https://img.shields.io/badge/Hugging%20Face-nyralabs-FFD21E)](https://huggingface.co/nyralabs)
+[![Upstream](https://img.shields.io/badge/upstream-nyrahealth%2FCrisperWhisper-181717?logo=github)](https://github.com/nyrahealth/CrisperWhisper)
 ![Code License](https://img.shields.io/badge/code%20license-MIT-blue)
-![Model License](https://img.shields.io/badge/model%20license-non--commercial-yellow)
+[![Model License](https://img.shields.io/badge/model%20license-non--commercial-yellow)](https://huggingface.co/nyralabs/CrisperWhisper2.0_large/blob/main/LICENSE.md)
 
 Native C++/CUDA inference for
 [Nyra Labs CrisperWhisper 2.0](https://huggingface.co/nyralabs/CrisperWhisper2.0_large):
