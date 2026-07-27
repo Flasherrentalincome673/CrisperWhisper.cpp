@@ -28,8 +28,20 @@ struct TranscriptionOptions {
     int context_words = 12;
     int drop_words = 2;
 
+    // Opt-in supervised word alignment from CrisperWhisper's trained
+    // decoder-to-audio attention heads. This loads a separate no-flash
+    // alignment context on first use; normal transcription keeps flash
+    // attention enabled.
+    bool word_timestamps = false;
+
     // When set, switches from transcription to the "verbatimize" task.
     std::optional<std::string> verbatimize_transcript;
+};
+
+struct WordTimestamp {
+    std::string word;
+    double start_seconds = 0.0;
+    double end_seconds = 0.0;
 };
 
 struct ChunkResult {
@@ -39,15 +51,18 @@ struct ChunkResult {
     std::string text;
     std::string context;
     bool is_last = false;
+    std::vector<WordTimestamp> words;
 };
 
 struct TranscriptionResult {
     std::string text;
     std::string language;
     Mode mode = Mode::Verbatim;
+    bool word_timestamps = false;
     double duration_seconds = 0.0;
     double processing_seconds = 0.0;
     std::vector<ChunkResult> chunks;
+    std::vector<WordTimestamp> words;
 };
 
 struct ModelOptions {

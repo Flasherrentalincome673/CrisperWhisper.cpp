@@ -1,5 +1,6 @@
 #include "crisperwhisper.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <exception>
 #include <iomanip>
@@ -28,7 +29,7 @@ struct CliOptions {
         << " --model MODEL.bin --file AUDIO [options]\n\n"
         << "Required:\n"
         << "  -m, --model PATH          Converted ggml model\n"
-        << "  -f, --file PATH           WAV, MP3, FLAC, or Ogg audio\n\n"
+        << "  -f, --file PATH           Audio; auto downmix/resample to 16 kHz mono\n\n"
         << "Recognition:\n"
         << "  --mode MODE               verbatim (default) or intended\n"
         << "  -l, --language CODE       Whisper language code (default: en)\n"
@@ -36,6 +37,7 @@ struct CliOptions {
         << "  --verbatimize TEXT        Insert spoken disfluencies into TEXT\n"
         << "  --verbatize TEXT          Alias for --verbatimize\n"
         << "  --max-tokens N            Tokens per chunk (default: 256)\n"
+        << "  --word-timestamps         Supervised per-word timestamps\n"
         << "  -t, --threads N           CPU worker threads\n\n"
         << "Long audio:\n"
         << "  --chunk-seconds N         Window length, max 30 (default: 30)\n"
@@ -119,6 +121,8 @@ CliOptions parse_args(int argc, char ** argv) {
         } else if (arg == "--max-tokens") {
             options.transcription.max_new_tokens =
                 std::stoi(next_value(i, argc, argv, arg));
+        } else if (arg == "--word-timestamps") {
+            options.transcription.word_timestamps = true;
         } else if (arg == "-t" || arg == "--threads") {
             options.transcription.threads =
                 std::stoi(next_value(i, argc, argv, arg));
@@ -178,6 +182,49 @@ std::string json_escape(const std::string & value) {
     return output.str();
 }
 
+std::string format_timestamp(const double seconds) {
+    const auto total_milliseconds = static_cast<long long>(
+        std::llround(std::max(0.0, seconds) * 1000.0)
+    );
+    const auto hours = total_milliseconds / 3'600'000;
+    const auto minutes = (total_milliseconds / 60'000) % 60;
+    const auto whole_seconds = (total_milliseconds / 1'000) % 60;
+    const auto milliseconds = total_milliseconds % 1'000;
+
+    std::ostringstream output;
+    output << std::setfill('0')
+           << std::setw(2) << hours << ':'
+           << std::setw(2) << minutes << ':'
+           << std::setw(2) << whole_seconds << '.'
+           << std::setw(3) << milliseconds;
+    return output.str();
+}
+
+void print_json_words(
+    const std::vector<crisperwhisper::WordTimestamp> & words,
+    const std::string & indentation
+) {
+    std::cout << "[";
+    if (!words.empty()) {
+        std::cout << '\n';
+    }
+    for (std::size_t i = 0; i < words.size(); ++i) {
+        const auto & word = words[i];
+        std::cout
+            << indentation << "  {\"word\": \"" << json_escape(word.word)
+            << "\", \"start\": " << word.start_seconds
+            << ", \"end\": " << word.end_seconds << "}";
+        if (i + 1 != words.size()) {
+            std::cout << ',';
+        }
+        std::cout << '\n';
+    }
+    if (!words.empty()) {
+        std::cout << indentation;
+    }
+    std::cout << ']';
+}
+
 void print_json(const crisperwhisper::TranscriptionResult & result) {
     std::cout << "{\n"
               << "  \"text\": \"" << json_escape(result.text) << "\",\n"
@@ -187,8 +234,13 @@ void print_json(const crisperwhisper::TranscriptionResult & result) {
               << "\",\n"
               << "  \"duration\": " << result.duration_seconds << ",\n"
               << "  \"processing_time\": " << result.processing_seconds
-              << ",\n"
-              << "  \"chunks\": [\n";
+              << ",\n";
+    if (result.word_timestamps) {
+        std::cout << "  \"words\": ";
+        print_json_words(result.words, "  ");
+        std::cout << ",\n";
+    }
+    std::cout << "  \"chunks\": [\n";
     for (std::size_t i = 0; i < result.chunks.size(); ++i) {
         const auto & chunk = result.chunks[i];
         std::cout
@@ -198,7 +250,12 @@ void print_json(const crisperwhisper::TranscriptionResult & result) {
             << ", \"text\": \"" << json_escape(chunk.text)
             << "\", \"context\": \"" << json_escape(chunk.context)
             << "\", \"is_last\": "
-            << (chunk.is_last ? "true" : "false") << "}";
+            << (chunk.is_last ? "true" : "false");
+        if (result.word_timestamps) {
+            std::cout << ", \"words\": ";
+            print_json_words(chunk.words, "    ");
+        }
+        std::cout << "}";
         if (i + 1 != result.chunks.size()) {
             std::cout << ',';
         }
@@ -220,6 +277,15 @@ int main(int argc, char ** argv) {
             print_json(result);
         } else {
             std::cout << result.text << '\n';
+            if (options.transcription.word_timestamps) {
+                std::cout << "\nWord timestamps:\n";
+                for (const auto & word : result.words) {
+                    std::cout
+                        << '[' << format_timestamp(word.start_seconds)
+                        << " --> " << format_timestamp(word.end_seconds)
+                        << "] " << word.word << '\n';
+                }
+            }
             std::cerr
                 << "processed " << std::fixed << std::setprecision(2)
                 << result.duration_seconds << " s of audio in "

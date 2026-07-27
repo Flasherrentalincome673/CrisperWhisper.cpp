@@ -10,6 +10,7 @@ tokens and is the main reason the stock whisper.cpp HF converter is not used.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import struct
@@ -25,9 +26,13 @@ import numpy as np
 
 MEL_FILTERS_URL = (
     "https://raw.githubusercontent.com/openai/whisper/"
-    "248b6cb124225dd263bb9bd32d060b6517e067f8/"
+    "04f449b8a437f1bbd3dba5c9f826aca972e7709a/"
     "whisper/assets/mel_filters.npz"
 )
+MEL_FILTERS_SHA256 = (
+    "7450ae70723a5ef9d341e3cee628c7cb0177f36ce42c44b7ed2bf3325f0f6d4c"
+)
+MEL_FILTER_KEYS = {"mel_80", "mel_128"}
 
 CONVERSION_MAP = {
     "self_attn.k_proj": "attn.key",
@@ -242,11 +247,22 @@ def full_vocabulary(model_dir: Path, vocabulary_size: int) -> list[bytes]:
 def ensure_mel_filters(cache_dir: Path) -> Path:
     path = cache_dir / "mel_filters.npz"
     if path.exists():
-        return path
+        try:
+            with np.load(path) as archive:
+                if MEL_FILTER_KEYS.issubset(archive.files):
+                    return path
+        except (OSError, ValueError):
+            pass
     cache_dir.mkdir(parents=True, exist_ok=True)
-    print("Downloading OpenAI Whisper mel filters...")
+    print("Downloading OpenAI Whisper 80/128-band mel filters...")
     with urllib.request.urlopen(MEL_FILTERS_URL) as response:
         payload = response.read()
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != MEL_FILTERS_SHA256:
+        raise RuntimeError(
+            "OpenAI Whisper mel-filter checksum mismatch: "
+            f"expected {MEL_FILTERS_SHA256}, got {digest}"
+        )
     temporary = path.with_suffix(".npz.partial")
     temporary.write_bytes(payload)
     os.replace(temporary, path)

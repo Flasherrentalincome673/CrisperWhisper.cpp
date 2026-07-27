@@ -6,3 +6,5 @@
 *.md text eol=lf
 *.yml text eol=lf
 CMakeLists.txt text eol=lf
+*.wav binary
+*.png binary

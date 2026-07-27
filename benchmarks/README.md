@@ -26,14 +26,14 @@ Run cold-start, warm, and long-form tests:
 .\.venv-benchmark\Scripts\python.exe benchmarks\run_comparison.py `
   --cpp-exe build-universal\bin\crisper-whisper-bench.exe `
   --ggml-model models\ggml-crisperwhisper-large-f16.bin `
-  --hf-model nyralabs/CrisperWhisper2.0_large `
-  --audio C:\path\to\speech.wav
+  --hf-model nyralabs/CrisperWhisper2.0_large
 ```
 
-Without `--long-audio`, the runner repeats the short input WAV to 55 seconds.
-That synthetic clip is useful for reproducible performance timing, but it is
-not a natural long-form quality sample. To test an uninterrupted meeting,
-interview, or podcast excerpt instead:
+The default short input is the bundled `samples\jfk.wav`. Without
+`--long-audio`, the runner repeats that WAV to 55 seconds. The synthetic clip
+is useful for reproducible performance timing, but it is not a natural
+long-form quality sample. To test an uninterrupted meeting, interview, or
+podcast excerpt instead:
 
 ```powershell
 .\.venv-benchmark\Scripts\python.exe benchmarks\run_comparison.py `

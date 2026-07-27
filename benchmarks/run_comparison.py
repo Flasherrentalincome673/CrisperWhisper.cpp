@@ -24,7 +24,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cpp-exe", type=Path, required=True)
     parser.add_argument("--ggml-model", type=Path, required=True)
     parser.add_argument("--hf-model", required=True)
-    parser.add_argument("--audio", type=Path, required=True)
+    parser.add_argument(
+        "--audio",
+        type=Path,
+        default=root / "samples" / "jfk.wav",
+        help="Short WAV input (default: bundled samples/jfk.wav).",
+    )
     parser.add_argument(
         "--long-audio",
         type=Path,

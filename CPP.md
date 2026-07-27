@@ -23,11 +23,11 @@ dependency.
 - Hotword prompts (effective on Pro checkpoints).
 - Reusable `crisperwhisper::Model` C++ API.
 - Plain-text and JSON CLI output.
+- Opt-in supervised cross-attention word timestamps.
 
-The port does not yet reproduce the Python package's supervised
-cross-attention word timestamps, speculative draft-model decoding,
-dual-mode batching, or its full temperature/hallucination recovery stack.
-Core transcription is native and uses the same checkpoint weights.
+The port does not yet reproduce the Python package's speculative draft-model
+decoding, dual-mode batching, or its full temperature/hallucination recovery
+stack. Core transcription is native and uses the same checkpoint weights.
 
 ## License
 
@@ -117,6 +117,22 @@ JSON output:
   --json
 ```
 
+Word timestamps are optional:
+
+```powershell
+.\build\bin\crisper-whisper.exe `
+  -m .\models\ggml-crisperwhisper-large-f16.bin `
+  -f .\meeting.wav `
+  --word-timestamps `
+  --json
+```
+
+Flash Attention remains active for transcription. Timestamp requests lazily
+load a second context with Flash Attention disabled and perform one
+teacher-forced alignment pass, since the fused kernel does not expose the
+cross-attention probabilities needed by CrisperWhisper's supervised aligner.
+Omitting `--word-timestamps` avoids that pass and its additional model memory.
+
 ## Linux quick start
 
 Prerequisites on Debian/Ubuntu:
@@ -149,7 +165,7 @@ You can make the choice explicit:
 ```
 
 Linux ARM64 CPU builds are experimental. Use the portable profile; the
-repository verifies it on a native GitHub ARM64 runner, but v1.0.0 does not
+repository verifies it on a native GitHub ARM64 runner, but v1.1.0 does not
 claim full model-inference validation on ARM:
 
 ```bash
@@ -210,9 +226,15 @@ int main() {
     crisperwhisper::TranscriptionOptions options;
     options.mode = crisperwhisper::Mode::Verbatim;
     options.language = "en";
+    options.word_timestamps = true;
 
     const auto result = model.transcribe_file("meeting.wav", options);
     std::cout << result.text << '\n';
+    for (const auto & word : result.words) {
+        std::cout << word.start_seconds << " -> "
+                  << word.end_seconds << ": "
+                  << word.word << '\n';
+    }
 }
 ```
 

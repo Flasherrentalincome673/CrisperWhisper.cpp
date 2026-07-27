@@ -3,6 +3,7 @@ __pycache__/
 dist/
 build/
 build-*/
+artifacts/
 .pytest_cache/
 .venv/
 .venv-benchmark/

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(
     CrisperWhisperCpp
-    VERSION 1.0.0
+    VERSION 1.1.0
     DESCRIPTION "Native C++ inference for CrisperWhisper 2.0"
     LANGUAGES C CXX
 )
@@ -12,6 +12,11 @@ include(FetchContent)
 option(CRISPERWHISPER_CUDA "Build the ggml CUDA backend" OFF)
 option(CRISPERWHISPER_BUILD_TESTS "Build native tests" ON)
 option(CRISPERWHISPER_BUILD_BENCHMARKS "Build the native benchmark runner" ON)
+option(
+    CRISPERWHISPER_STATIC_MSVC_RUNTIME
+    "Statically link the Microsoft C/C++ runtime in release packages"
+    OFF
+)
 set(
     CRISPERWHISPER_CPU_PROFILE
     "balance"
@@ -33,6 +38,13 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(MSVC AND CRISPERWHISPER_STATIC_MSVC_RUNTIME)
+    set(
+        CMAKE_MSVC_RUNTIME_LIBRARY
+        "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+endif()
 
 # Keep the dependency small: only the whisper library is needed.  The pin is
 # deliberate because CrisperWhisper's converter writes whisper.cpp's legacy
@@ -105,12 +117,18 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/ggml-org/whisper.cpp.git
     GIT_TAG 080bbbe85230f624f0b52127f1ae1218247989f9
     GIT_SHALLOW TRUE
+    PATCH_COMMAND
+        ${CMAKE_COMMAND}
+        -DWHISPER_SOURCE_DIR=<SOURCE_DIR>
+        -DWHISPER_PATCH_FILE=${CMAKE_CURRENT_SOURCE_DIR}/patches/whisper-cross-attention.patch
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/apply_whisper_patch.cmake
 )
 FetchContent_MakeAvailable(whisper_cpp)
 
 add_library(crisperwhisper STATIC
     src/audio.cpp
     src/crisperwhisper.cpp
+    src/word_timing.cpp
 )
 
 target_include_directories(crisperwhisper
@@ -149,6 +167,9 @@ if(CRISPERWHISPER_BUILD_TESTS)
     enable_testing()
     add_executable(crisperwhisper-tests tests/cpp/test_text.cpp)
     target_link_libraries(crisperwhisper-tests PRIVATE crisperwhisper)
+    target_include_directories(
+        crisperwhisper-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
     set_target_properties(
         crisperwhisper-tests
         PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

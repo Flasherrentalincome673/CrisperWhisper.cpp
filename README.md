@@ -1,17 +1,15 @@
+<p align="center">
+  <img src="crisperwhispercpp.png" alt="CrisperWhisper.cpp" width="100%">
+</p>
+
 # CrisperWhisper.cpp
 
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0078D4)
-![Engine](https://img.shields.io/badge/engine-C%2B%2B17%20%2B%20ggml-00599C)
-![GPU](https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900)
-![CPU](https://img.shields.io/badge/CPU-portable%20%7C%20AVX2%20%7C%20native-lightgrey)
-![Build](https://img.shields.io/badge/build-CMake%203.20%2B-success)
-![CLI](https://img.shields.io/badge/interface-CLI%20%2B%20C%2B%2B%20API-orange)
-[![Release](https://img.shields.io/badge/release-v1.0.0-blueviolet)](https://github.com/Saganaki22/CrisperWhisper.cpp/tree/v1.0.0)
-[![Benchmarks](https://img.shields.io/badge/benchmarks-cold%20%7C%20warm%20%7C%20long--form-8A2BE2)](BENCHMARKS.md)
+[![CI](https://github.com/Saganaki22/CrisperWhisper.cpp/actions/workflows/native.yml/badge.svg?branch=main)](https://github.com/Saganaki22/CrisperWhisper.cpp/actions/workflows/native.yml)
+[![Release](https://img.shields.io/badge/release-v1.1.0-blueviolet)](https://github.com/Saganaki22/CrisperWhisper.cpp/tree/v1.1.0)
 [![Paper](https://img.shields.io/badge/arXiv-2607.18934-B31B1B?logo=arxiv)](https://arxiv.org/abs/2607.18934)
-[![Models](https://img.shields.io/badge/Hugging%20Face-nyralabs-FFD21E)](https://huggingface.co/nyralabs)
-[![Upstream](https://img.shields.io/badge/upstream-nyrahealth%2FCrisperWhisper-181717?logo=github)](https://github.com/nyrahealth/CrisperWhisper)
-![Code License](https://img.shields.io/badge/code%20license-MIT-blue)
+[![GGML Models](https://img.shields.io/badge/Hugging%20Face-GGML%20models-FFD21E?logo=huggingface)](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML)
+[![Official](https://img.shields.io/badge/official-nyrahealth%2FCrisperWhisper-181717?logo=github)](https://github.com/nyrahealth/CrisperWhisper)
+[![Code License](https://img.shields.io/badge/code%20license-MIT-blue)](LICENSE)
 [![Model License](https://img.shields.io/badge/model%20license-non--commercial-yellow)](https://huggingface.co/nyralabs/CrisperWhisper2.0_large/blob/main/LICENSE.md)
 
 Native C++/CUDA inference for
@@ -20,8 +18,9 @@ controllable speech-to-text with verbatim and intended output, word-preserving
 long-audio continuation, and no Python dependency at runtime.
 
 The project uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and
-ggml for optimized CPU/CUDA execution. Python is needed only once to download
-and convert the Hugging Face safetensors checkpoint into a native ggml model.
+ggml for optimized CPU/CUDA execution. Python is never needed at runtime and
+is only needed when converting an original safetensors checkpoint yourself;
+ready-to-run GGML models are available from the link above.
 
 > [!NOTE]
 > This is an unofficial community implementation. It is not affiliated with,
@@ -49,30 +48,50 @@ and convert the Hugging Face safetensors checkpoint into a native ggml model.
 | Verbatim transcription | Supported |
 | Intended/clean transcription | Supported |
 | Audio longer than 30 seconds | Supported |
-| WAV, MP3, FLAC, Ogg Vorbis | Supported |
+| WAV, MP3, FLAC, Ogg Vorbis | Automatic decode, mono downmix, and 16 kHz resample |
 | Hotword prompts | Supported by compatible Pro checkpoints |
 | Verbatimize task | Supported |
 | JSON CLI output | Supported |
 | Reusable C++ API | Supported |
 | Python required during inference | No |
-| Supervised word timestamps | Not yet ported |
+| Supervised word timestamps | Supported; opt-in with `--word-timestamps` |
 | Speculative draft-model decoding | Not yet ported |
+
+## Downloads
+
+[GitHub Releases](https://github.com/Saganaki22/CrisperWhisper.cpp/releases/tag/v1.1.0)
+contains the native runtime archives; model weights are downloaded separately
+from [Hugging Face](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
+
+| Package | Intended system |
+| --- | --- |
+| `crisperwhisper-v1.1.0-windows-x64-cuda-rtx30-40-50.zip` | RTX 3090, 4090, 5090, and compatible NVIDIA GPUs; includes CPU fallback |
+| `crisperwhisper-v1.1.0-windows-x64-cpu-portable.zip` | Broad x64 CPU compatibility |
+| `crisperwhisper-v1.1.0-windows-x64-cpu-avx2.zip` | Faster general build for AVX2-capable x64 CPUs |
+| `crisperwhisper-v1.1.0-linux-x64-cpu-portable.zip` | Broad Linux x64 CPU compatibility |
+| `crisperwhisper-v1.1.0-linux-x64-cpu-avx2.zip` | Faster Linux build for AVX2-capable x64 CPUs |
+
+Linux CUDA remains a source build until a Linux-built package is verified.
+No model file is duplicated inside a GitHub archive.
 
 ## RTX 5090 benchmark
 
 Measured locally with the large FP16 model and matching verbatim decoding
 settings. Lower time and RTF are better.
 
-| Scenario | Native C++/ggml | Python/Transformers | Native speedup |
-| --- | ---: | ---: | ---: |
-| Fresh process + 11s audio | 3.586 s | 14.297 s | 3.99x |
-| Warm 11s audio | 0.462 s | 1.952 s | 4.23x |
-| Warm synthetic 55s audio | 2.065 s | 6.190 s | 3.00x |
+| Scenario | Native C++/ggml | Python/Transformers | Speedup | Native faster |
+| --- | ---: | ---: | ---: | ---: |
+| Fresh process + 11s audio | 3.586 s | 14.297 s | 3.99x | 299% |
+| Warm 11s audio | 0.462 s | 1.952 s | 4.23x | 323% |
+| Warm synthetic 55s audio | 2.065 s | 6.190 s | 3.00x | 200% |
 
-The 55-second input repeats whisper.cpp's `samples/jfk.wav`; it is a
-reproducible timing workload, not a natural long-form quality sample. All rows
-had exact normalized transcript agreement. See [BENCHMARKS.md](BENCHMARKS.md)
-for model-load times, RTF, methodology, caveats, and raw measurements.
+“Native faster” is calculated as `(Python time / native time - 1) × 100`.
+
+The 55-second input repeats the bundled [`samples/jfk.wav`](samples/jfk.wav)
+from whisper.cpp; it is a reproducible timing workload, not a natural
+long-form quality sample. All rows had exact normalized transcript agreement.
+See [BENCHMARKS.md](BENCHMARKS.md) for model-load times, RTF, methodology,
+caveats, and raw measurements.
 
 ## Quick start
 
@@ -88,7 +107,7 @@ for model-load times, RTF, methodology, caveats, and raw measurements.
 # Transcribe.
 .\build\bin\crisper-whisper.exe `
   --model .\models\ggml-crisperwhisper-large-f16.bin `
-  --file .\meeting.wav `
+  --file .\samples\jfk.wav `
   --mode verbatim `
   --language en
 ```
@@ -107,7 +126,7 @@ Windows source-build details are in [CPP.md](CPP.md).
 # Transcribe.
 ./build/bin/crisper-whisper \
   --model ./models/ggml-crisperwhisper-large-f16.bin \
-  --file ./meeting.wav \
+  --file ./samples/jfk.wav \
   --mode verbatim \
   --language en
 ```
@@ -134,6 +153,18 @@ Machine-readable output:
 ```text
 crisper-whisper -m MODEL.bin -f meeting.mp3 --json
 ```
+
+Optional supervised word timestamps:
+
+```text
+crisper-whisper -m MODEL.bin -f meeting.mp3 --word-timestamps --json
+```
+
+The normal path keeps GGML Flash Attention enabled. Word timestamps lazily
+load a separate alignment context and run one additional teacher-forced
+no-Flash pass because fused Flash Attention does not expose the
+decoder-to-audio probability matrix. If the flag is omitted, there is no
+alignment pass or timestamp-related model-memory cost.
 
 Add audio-grounded disfluencies to a trusted clean transcript:
 
@@ -179,7 +210,7 @@ Nyra's original resources:
 | Option | Meaning |
 | --- | --- |
 | `-m, --model PATH` | Converted CrisperWhisper ggml model |
-| `-f, --file PATH` | WAV, MP3, FLAC, or Ogg audio |
+| `-f, --file PATH` | WAV, MP3, FLAC, or Ogg; automatically converted in memory to mono 16 kHz |
 
 ### Recognition
 
@@ -190,6 +221,7 @@ Nyra's original resources:
 | `--hotwords TEXT` | none | Comma-separated hotwords |
 | `--verbatimize TEXT` | none | Add audio-grounded disfluencies to trusted text |
 | `--max-tokens N` | `256` | Maximum generated tokens per chunk |
+| `--word-timestamps` | off | Add supervised cross-attention word timings |
 | `-t, --threads N` | hardware count | CPU worker threads |
 
 ### Long audio
@@ -208,7 +240,7 @@ Nyra's original resources:
 | `--cpu` | Disable GPU offload |
 | `--gpu N` | Select CUDA device index |
 | `--no-flash-attn` | Disable flash attention |
-| `--json` | Emit text, timing, mode, language, and chunk metadata as JSON |
+| `--json` | Emit text, mode, language, chunk metadata, and requested word timings as JSON |
 | `-h, --help` | Print built-in help |
 
 Example with long-audio tuning:
@@ -240,6 +272,19 @@ crisper-whisper \
 | Turbo | [`nyralabs/CrisperWhisper2.0_turbo`](https://huggingface.co/nyralabs/CrisperWhisper2.0_turbo) | Public; fastest standard checkpoint |
 | Large | [`nyralabs/CrisperWhisper2.0_large`](https://huggingface.co/nyralabs/CrisperWhisper2.0_large) | Public; default and tested by this port |
 | Large Pro | [`nyralabs/CrisperWhisper2.0_large_pro`](https://huggingface.co/nyralabs/CrisperWhisper2.0_large_pro) | Manually gated; approval and commercial model license required |
+
+Ready-to-run F16 GGML conversions of the four public checkpoints are hosted
+together at
+[`drbaph/CrisperWhisper2.0-GGML`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
+Download the `.bin` you want into `models/`; you do not need Python or the
+conversion step when using one of these files.
+
+| Converted model | Download |
+| --- | --- |
+| Small | [`ggml-crisperwhisper-small-f16.bin`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-small-f16.bin?download=true) |
+| Medium | [`ggml-crisperwhisper-medium-f16.bin`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-medium-f16.bin?download=true) |
+| Turbo | [`ggml-crisperwhisper-turbo-f16.bin`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-turbo-f16.bin?download=true) |
+| Large | [`ggml-crisperwhisper-large-f16.bin`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-large-f16.bin?download=true) |
 
 The standard small, medium, turbo, and large models remain subject to Nyra's
 [Non-Commercial Research License](https://huggingface.co/nyralabs/CrisperWhisper2.0_large/blob/main/LICENSE.md).
@@ -425,10 +470,21 @@ The native runtime follows that design:
 4. Put the last 12 confirmed words in the next decoder prompt.
 5. Continue until the end of the recording.
 
-This avoids naive concatenation and reduces duplicated or dropped words at
-chunk boundaries. The current C++ implementation uses the fixed two-word
-boundary fallback. The Python package's attention-aware boundary selection is
-listed under parity work below.
+This does not naively concatenate overlapping model output:
+
+- With `--word-timestamps`, the 26-second stride is an ownership cutoff.
+  Words beginning in a chunk's trailing overlap are emitted by the next
+  window, not both windows.
+- Exact normalized suffix/prefix matches are removed at each seam.
+- A word straddling the cutoff is deduplicated by text and time.
+- Emitted word times are clamped and monotonized, so `start <= end` and a
+  later word never begins before the previous emitted word ends.
+- Without word timestamps, the fixed boundary tail remains as a fallback and
+  the same text seam matcher removes exact repeated sequences.
+
+The bundled 55-second repeated-JFK regression completed with zero invalid
+timestamps, zero overlapping adjacent word pairs, and zero adjacent
+text/timestamp duplicates.
 
 </details>
 
@@ -505,14 +561,17 @@ Audio file
 include/crisperwhisper.h        Public C++ API
 src/crisperwhisper.cpp          Prompting, inference, long audio
 src/audio.cpp                   Native audio decode/resample
+src/word_timing.cpp             Supervised cross-attention word alignment
 src/main.cpp                    CLI
 tools/convert_hf_to_ggml.py     One-time safetensors converter
 scripts/build.ps1               Windows build wrapper
 scripts/build.sh                Linux build wrapper
+scripts/package-windows.ps1     Self-contained Windows release ZIPs
 scripts/setup-model.ps1         Windows model setup
 scripts/setup-model.sh          Linux model setup
 tests/cpp/                      Native tests
 .github/workflows/native.yml    Windows/Linux CPU build matrix
+.github/workflows/release.yml   Tagged Windows/Linux CPU ZIP releases
 ```
 
 whisper.cpp is fetched at configure time and pinned to a known commit for
@@ -535,11 +594,11 @@ Implemented natively:
 - CUDA and CPU backends
 - Native audio decode/resample
 - JSON results and per-chunk metadata
+- Opt-in supervised cross-attention word timestamps
+- Timestamp-aware overlap ownership and seam deduplication
 
 Still to port from Nyra's Python package:
 
-- Supervised cross-attention word timestamps
-- Timestamp-aware overlap word dropping
 - Forced alignment
 - Dual verbatim/intended batching
 - Speculative decoding with a smaller draft checkpoint
@@ -568,7 +627,7 @@ The repository includes a six-job x86-64 CPU matrix covering portable,
 balanced, and fast profiles on both `windows-latest` and `ubuntu-latest`, plus
 a native `ubuntu-24.04-arm` portable ARM64 job. Linux ARM64 remains
 experimental until full model inference is validated on ARM hardware. Windows
-ARM64 and ARM CUDA/Jetson are not supported in v1.0.0. CUDA execution should
+ARM64 and ARM CUDA/Jetson are not supported in v1.1.0. CUDA execution should
 also be tested on the intended GPU architecture because standard hosted CI
 runners do not provide NVIDIA GPUs.
 
@@ -629,34 +688,7 @@ for commercial model licensing.
 
 </details>
 
-<details>
-<summary><strong>Do I need the audio.cpp Windows release binaries?</strong></summary>
-
-No. `audio.cpp` is an architectural reference, not a binary dependency of
-this project. Its `audiocpp_cli.exe` and engine packages are a different
-application and ABI, so copying those files here would not provide
-CrisperWhisper support.
-
-CrisperWhisper.cpp builds its own native executable from source:
-
-```powershell
-.\scripts\build.ps1
-```
-
-The result is `build\bin\crisper-whisper.exe`. The CUDA build contains ggml,
-whisper.cpp, the native audio decoder, and the selected GPU kernels in this
-project's own executable.
-
-An unbundled Windows CUDA executable still loads NVIDIA cuBLAS and the normal
-Microsoft C++/OpenMP runtimes. A local source build gets those from the
-installed CUDA toolkit and Visual C++ runtime. When publishing downloadable
-binaries, package a matching runtime bundle for this project; do not use
-audio.cpp's runtime package, which belongs to its own executable and ABI.
-
-</details>
-
-<details>
-<summary><strong>Licensing and credits</strong></summary>
+## Licensing and credits
 
 - Native port and repository inference code: [MIT](LICENSE)
 - whisper.cpp and ggml: MIT
@@ -673,5 +705,3 @@ Credits:
 - [ggml-org](https://github.com/ggml-org/whisper.cpp) for whisper.cpp/ggml
 - [0xShug0/audio.cpp](https://github.com/0xShug0/audio.cpp) as a reference for
   structuring native multi-platform audio inference projects
-
-</details>

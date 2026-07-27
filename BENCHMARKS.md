@@ -29,10 +29,11 @@ Generated 2026-07-27T15:18:22.063248+00:00 on Windows with NVIDIA GeForce RTX 50
   The operating-system file cache is not purged between runs.
 - Warm short audio is median of 5 measured calls after one
   unmeasured warm-up with the model kept loaded.
-- Long-form is a synthetic 55-second repetition of whisper.cpp's `samples/jfk.wav`,
-  used for reproducible timing rather than as a natural-speech quality test. It
-  uses 30-second chunks, 26-second stride, 12 context words, and two boundary
-  words. It is the median of 3 calls after one warm-up.
+- Long-form is a synthetic 55-second repetition of the bundled
+  [`samples/jfk.wav`](samples/jfk.wav) from whisper.cpp, used for reproducible
+  timing rather than as a natural-speech quality test. It uses 30-second
+  chunks, 26-second stride, 12 context words, and two boundary words. It is
+  the median of 3 calls after one warm-up.
 - RTF is call wall time divided by audio duration; lower is better.
 - The Windows Python comparison uses Transformers because Nyra's custom
   CTranslate2 wheel is currently published for Linux only.

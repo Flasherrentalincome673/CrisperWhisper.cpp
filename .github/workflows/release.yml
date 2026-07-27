@@ -1,0 +1,117 @@
+name: Native release packages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to package
+        required: true
+        default: v1.1.0
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  cpu-packages:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x64
+            executable: build/bin/Release/crisper-whisper.exe
+            profile: portable
+            variant: cpu-portable
+          - os: windows-latest
+            platform: windows-x64
+            executable: build/bin/Release/crisper-whisper.exe
+            profile: balance
+            variant: cpu-avx2
+          - os: ubuntu-latest
+            platform: linux-x64
+            executable: build/bin/crisper-whisper
+            profile: portable
+            variant: cpu-portable
+          - os: ubuntu-latest
+            platform: linux-x64
+            executable: build/bin/crisper-whisper
+            profile: balance
+            variant: cpu-avx2
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }} / ${{ matrix.profile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Configure
+        shell: bash
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCRISPERWHISPER_CUDA=OFF
+          -DCRISPERWHISPER_CPU_PROFILE=${{ matrix.profile }}
+          -DCRISPERWHISPER_BUILD_TESTS=ON
+          -DCRISPERWHISPER_BUILD_BENCHMARKS=OFF
+          -DCRISPERWHISPER_STATIC_MSVC_RUNTIME=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Stage Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          ./scripts/package-windows.ps1
+          -BuildDirectory build
+          -Variant ${{ matrix.variant }}
+          -Version $env:RELEASE_TAG
+          -OutputDirectory package
+
+      - name: Stage Linux package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          package="crisperwhisper-${RELEASE_TAG}-${{ matrix.platform }}-${{ matrix.variant }}"
+          mkdir -p "package/${package}/samples"
+          cp "${{ matrix.executable }}" "package/${package}/"
+          cp README.md CPP.md BUILD_LINUX.md LICENSE crisperwhispercpp.png \
+            "package/${package}/"
+          cp samples/jfk.wav samples/README.md samples/LICENSE.whisper.cpp \
+            "package/${package}/samples/"
+          (
+            cd package
+            cmake -E tar cf "${package}.zip" --format=zip "${package}"
+          )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.profile }}
+          path: package/*.zip
+          if-no-files-found: error
+
+  publish:
+    needs: cpu-packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: release-assets
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          files: |
+            release-assets/*.zip

@@ -1,0 +1,140 @@
+diff --git a/include/whisper.h b/include/whisper.h
+index 951b92d..42fdf94 100644
+--- a/include/whisper.h
++++ b/include/whisper.h
+@@ -339,6 +339,43 @@ extern "C" {
+                                int   n_past,
+                                int   n_threads);
+ 
++    // CrisperWhisper.cpp extension: run a teacher-forced decoder batch and
++    // retain the selected post-softmax cross-attention heads. The context must
++    // be initialized with dtw_token_timestamps=true and custom alignment heads.
++    WHISPER_API int whisper_decode_with_state_and_cross_attention(
++            struct whisper_context * ctx,
++              struct whisper_state * state,
++               const whisper_token * tokens,
++                               int   n_tokens,
++                               int   n_past,
++                               int   n_threads);
++
++    // Shape of the retained cross-attention tensor:
++    // [n_tokens, n_audio_frames, n_alignment_heads]. The token dimension is
++    // contiguous. Copy returns the required/copied float count, or 0 when no
++    // attention is available or the destination is too small.
++    WHISPER_API int whisper_cross_attention_n_tokens_from_state(
++            const struct whisper_state * state);
++    WHISPER_API int whisper_cross_attention_n_frames_from_state(
++            const struct whisper_state * state);
++    WHISPER_API int whisper_cross_attention_n_heads_from_state(
++            const struct whisper_state * state);
++    WHISPER_API size_t whisper_cross_attention_copy_from_state(
++            const struct whisper_state * state,
++                              float * destination,
++                             size_t   destination_count);
++
++    // Full padded log-mel matrix retained by whisper_pcm_to_mel_with_state().
++    // Data is laid out as [n_mels, n_frames], with frames contiguous.
++    WHISPER_API int whisper_mel_n_frames_from_state(
++            const struct whisper_state * state);
++    WHISPER_API int whisper_mel_n_mels_from_state(
++            const struct whisper_state * state);
++    WHISPER_API size_t whisper_mel_copy_from_state(
++            const struct whisper_state * state,
++                              float * destination,
++                             size_t   destination_count);
++
+     // Convert the provided text into tokens.
+     // The tokens pointer must be large enough to hold the resulting tokens.
+     // Returns the number of tokens on success, no more than n_max_tokens
+diff --git a/src/whisper.cpp b/src/whisper.cpp
+index 76290b8..b17bf68 100644
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -3959,6 +3959,87 @@ int whisper_decode_with_state(struct whisper_context * ctx, struct whisper_state
+     return 0;
+ }
+ 
++int whisper_decode_with_state_and_cross_attention(
++        struct whisper_context * ctx,
++          struct whisper_state * state,
++           const whisper_token * tokens,
++                           int   n_tokens,
++                           int   n_past,
++                           int   n_threads) {
++    if (!ctx->params.dtw_token_timestamps) {
++        WHISPER_LOG_ERROR("%s: context was not initialized for alignment-head capture\n", __func__);
++        return 1;
++    }
++
++    whisper_batch_prep_legacy(state->batch, tokens, n_tokens, n_past, 0);
++    whisper_kv_cache_seq_rm(state->kv_self, 0, n_past, -1);
++
++    if (!whisper_decode_internal(*ctx, *state, state->batch, n_threads, true, nullptr, nullptr)) {
++        WHISPER_LOG_ERROR("%s: failed to eval\n", __func__);
++        return 1;
++    }
++
++    return 0;
++}
++
++int whisper_cross_attention_n_tokens_from_state(const struct whisper_state * state) {
++    return state != nullptr && state->aheads_cross_QKs != nullptr
++        ? (int) state->aheads_cross_QKs->ne[0]
++        : 0;
++}
++
++int whisper_cross_attention_n_frames_from_state(const struct whisper_state * state) {
++    return state != nullptr && state->aheads_cross_QKs != nullptr
++        ? (int) state->aheads_cross_QKs->ne[1]
++        : 0;
++}
++
++int whisper_cross_attention_n_heads_from_state(const struct whisper_state * state) {
++    return state != nullptr && state->aheads_cross_QKs != nullptr
++        ? (int) state->aheads_cross_QKs->ne[2]
++        : 0;
++}
++
++size_t whisper_cross_attention_copy_from_state(
++        const struct whisper_state * state,
++                          float * destination,
++                         size_t   destination_count) {
++    if (state == nullptr || state->aheads_cross_QKs == nullptr || destination == nullptr) {
++        return 0;
++    }
++    const size_t count = (size_t) ggml_nelements(state->aheads_cross_QKs);
++    if (destination_count < count) {
++        return 0;
++    }
++    ggml_backend_tensor_get(
++        state->aheads_cross_QKs, destination, 0, count * sizeof(float)
++    );
++    return count;
++}
++
++int whisper_mel_n_frames_from_state(const struct whisper_state * state) {
++    return state != nullptr ? state->mel.n_len : 0;
++}
++
++int whisper_mel_n_mels_from_state(const struct whisper_state * state) {
++    return state != nullptr ? state->mel.n_mel : 0;
++}
++
++size_t whisper_mel_copy_from_state(
++        const struct whisper_state * state,
++                          float * destination,
++                         size_t   destination_count) {
++    if (state == nullptr || destination == nullptr) {
++        return 0;
++    }
++    const size_t count = state->mel.data.size();
++    if (destination_count < count) {
++        return 0;
++    }
++    memcpy(destination, state->mel.data.data(), count * sizeof(float));
++    return count;
++}
++
+ int whisper_decode(struct whisper_context * ctx, const whisper_token * tokens, int n_tokens, int n_past, int n_threads) {
+     if (ctx->state == nullptr) {
+         WHISPER_LOG_ERROR("%s: ERROR state was not loaded.\n", __func__);

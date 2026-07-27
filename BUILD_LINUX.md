@@ -6,8 +6,14 @@
 ![Build](https://img.shields.io/badge/build-CMake%203.20%2B-success)
 
 This guide covers native CPU and NVIDIA CUDA builds on Linux. Runtime
-transcription does not require Python. Python is used only for the one-time
-Hugging Face model download and conversion.
+transcription does not require Python. Python is only needed when converting
+an original checkpoint yourself; preconverted models are available from
+[`drbaph/CrisperWhisper2.0-GGML`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
+
+Prebuilt portable and AVX2 CPU ZIPs are published on
+[GitHub Releases](https://github.com/Saganaki22/CrisperWhisper.cpp/releases).
+Linux CUDA remains a native source build until the Linux CUDA archive has been
+built and verified on Linux. No Docker workflow is required by this guide.
 
 ## Supported targets
 
@@ -25,7 +31,7 @@ Experimental target:
 - Native compile/unit-test CI on `ubuntu-24.04-arm`
 - Full checkpoint inference not yet validated on ARM hardware
 
-Windows ARM64 and ARM CUDA/Jetson are not v1.0.0 targets. The repository's
+Windows ARM64 and ARM CUDA/Jetson are not v1.1.0 targets. The repository's
 primary CPU CI target is Ubuntu x86-64; other modern distributions should work
 through the same CMake build.
 
@@ -266,6 +272,10 @@ Print CLI help:
 
 ## 5. Transcribe
 
+Input does not have to be preconverted. WAV, MP3, FLAC, and Ogg Vorbis are
+decoded, downmixed to mono, and resampled to 16 kHz in memory by the native
+runtime. No temporary file or FFmpeg subprocess is used.
+
 Verbatim:
 
 ```bash
@@ -294,6 +304,20 @@ JSON:
   -f ./meeting.flac \
   --json > transcript.json
 ```
+
+Optional supervised word timestamps:
+
+```bash
+./build/bin/crisper-whisper \
+  -m ./models/ggml-crisperwhisper-large-f16.bin \
+  -f ./meeting.flac \
+  --word-timestamps \
+  --json > transcript-with-words.json
+```
+
+The normal transcription pass keeps Flash Attention enabled. The timestamp
+flag loads a separate no-Flash alignment context because fused Flash Attention
+does not expose the cross-attention probability matrix.
 
 Force CPU at runtime even when the binary includes CUDA:
 

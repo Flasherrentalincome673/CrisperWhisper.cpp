@@ -2,6 +2,7 @@
 
 #include "audio.h"
 #include "whisper.h"
+#include "word_timing.h"
 
 #include <algorithm>
 #include <chrono>
@@ -83,7 +84,11 @@ bool is_control_token_text(const std::string & token) {
 } // namespace
 
 struct Model::Impl {
+    std::string model_path;
+    ModelOptions model_options;
     ContextPtr context{nullptr, &whisper_free};
+    mutable ContextPtr timing_context{nullptr, &whisper_free};
+    mutable std::vector<whisper_ahead> timing_heads;
     int n_vocab = 0;
 
     int eot = -1;
@@ -99,7 +104,12 @@ struct Model::Impl {
     int hotword_start = -1;
     int hotword_end = -1;
 
-    explicit Impl(const std::string & model_path, const ModelOptions & options) {
+    explicit Impl(
+        const std::string & model_path_value,
+        const ModelOptions & options
+    )
+        : model_path(model_path_value),
+          model_options(options) {
         whisper_context_params params = whisper_context_default_params();
         params.use_gpu = options.use_gpu;
         params.flash_attn = options.flash_attention;
@@ -284,6 +294,73 @@ struct Model::Impl {
         return best_id;
     }
 
+    std::vector<whisper_ahead> crisper_alignment_heads() const {
+        const int layers = whisper_model_n_text_layer(context.get());
+        const int heads = whisper_model_n_text_head(context.get());
+        const int mels = whisper_model_n_mels(context.get());
+
+        // generation_config.json from each open CrisperWhisper 2.0
+        // checkpoint. These are supervised model-specific heads, not
+        // whisper.cpp's generic DTW presets.
+        if (layers == 12 && heads == 12 && mels == 80) {
+            return {
+                {7, 8}, {3, 10}, {4, 0}, {7, 4}, {5, 3},
+                {0, 11}, {8, 8}, {7, 9}, {4, 10}, {5, 2},
+            };
+        }
+        if (layers == 24 && heads == 16 && mels == 80) {
+            return {
+                {7, 15}, {5, 0}, {1, 6}, {7, 5}, {8, 10},
+                {9, 0}, {6, 2}, {8, 6}, {10, 12}, {17, 0},
+            };
+        }
+        if (layers == 4 && heads == 20 && mels == 128) {
+            return {
+                {2, 11}, {1, 1}, {2, 8}, {3, 12}, {3, 15},
+                {3, 6}, {3, 17}, {2, 4}, {3, 3}, {3, 18},
+            };
+        }
+        if (layers == 32 && heads == 20 && mels == 80) {
+            return {
+                {8, 8}, {10, 3}, {4, 11}, {9, 18}, {11, 16},
+                {18, 14}, {5, 16}, {15, 4}, {20, 16}, {16, 11},
+            };
+        }
+
+        throw std::runtime_error(
+            "word timestamps are not configured for this model shape "
+            "(layers=" + std::to_string(layers) +
+            ", heads=" + std::to_string(heads) +
+            ", mels=" + std::to_string(mels) + ")"
+        );
+    }
+
+    whisper_context * ensure_timing_context() const {
+        if (timing_context) {
+            return timing_context.get();
+        }
+
+        timing_heads = crisper_alignment_heads();
+        whisper_context_params params = whisper_context_default_params();
+        params.use_gpu = model_options.use_gpu;
+        params.flash_attn = false;
+        params.gpu_device = model_options.gpu_device;
+        params.dtw_token_timestamps = true;
+        params.dtw_aheads_preset = WHISPER_AHEADS_CUSTOM;
+        params.dtw_aheads.n_heads = timing_heads.size();
+        params.dtw_aheads.heads = timing_heads.data();
+
+        timing_context.reset(whisper_init_from_file_with_params_no_state(
+            model_path.c_str(), params
+        ));
+        if (!timing_context) {
+            throw std::runtime_error(
+                "could not load the word-timestamp alignment context"
+            );
+        }
+        return timing_context.get();
+    }
+
     std::vector<int> decode_chunk(
         const float * samples,
         int sample_count,
@@ -366,6 +443,162 @@ struct Model::Impl {
         return generated;
     }
 
+    std::vector<detail::AlignedWord> align_chunk_words(
+        const float * samples,
+        int sample_count,
+        const std::vector<int> & prompt,
+        const std::vector<int> & generated,
+        int threads
+    ) const {
+        if (generated.empty()) {
+            return {};
+        }
+
+        whisper_context * timing = ensure_timing_context();
+        StatePtr state(
+            whisper_init_state(timing), &whisper_free_state
+        );
+        if (!state) {
+            throw std::runtime_error(
+                "could not allocate word-timestamp decoder state"
+            );
+        }
+        if (whisper_pcm_to_mel_with_state(
+                timing, state.get(), samples, sample_count, threads
+            ) != 0) {
+            throw std::runtime_error(
+                "failed to compute the word-timestamp spectrogram"
+            );
+        }
+        if (whisper_encode_with_state(
+                timing, state.get(), 0, threads
+            ) != 0) {
+            throw std::runtime_error(
+                "failed to run the word-timestamp audio encoder"
+            );
+        }
+
+        // Decoder row prompt.size()-1 predicts generated[0]. Feeding all
+        // known generated tokens except the last captures one row per output
+        // token in a single teacher-forced pass.
+        std::vector<int> teacher_tokens = prompt;
+        teacher_tokens.insert(
+            teacher_tokens.end(), generated.begin(), generated.end() - 1
+        );
+        if (teacher_tokens.size() >
+            static_cast<std::size_t>(
+                whisper_model_n_text_ctx(timing)
+            )) {
+            throw std::runtime_error(
+                "word-timestamp sequence exceeds model context"
+            );
+        }
+        if (whisper_decode_with_state_and_cross_attention(
+                timing,
+                state.get(),
+                teacher_tokens.data(),
+                static_cast<int>(teacher_tokens.size()),
+                0,
+                threads
+            ) != 0) {
+            throw std::runtime_error(
+                "failed to capture supervised cross-attention"
+            );
+        }
+
+        const int captured_tokens =
+            whisper_cross_attention_n_tokens_from_state(state.get());
+        const int attention_frames =
+            whisper_cross_attention_n_frames_from_state(state.get());
+        const int selected_heads =
+            whisper_cross_attention_n_heads_from_state(state.get());
+        const std::size_t first_generated_row = prompt.size() - 1;
+        if (captured_tokens <= 0 || attention_frames <= 0 ||
+            selected_heads <= 0 ||
+            first_generated_row + generated.size() >
+                static_cast<std::size_t>(captured_tokens)) {
+            throw std::runtime_error(
+                "captured cross-attention has an unexpected shape"
+            );
+        }
+
+        const std::size_t raw_count =
+            static_cast<std::size_t>(captured_tokens) *
+            static_cast<std::size_t>(attention_frames) *
+            static_cast<std::size_t>(selected_heads);
+        std::vector<float> raw_attention(raw_count);
+        if (whisper_cross_attention_copy_from_state(
+                state.get(), raw_attention.data(), raw_attention.size()
+            ) != raw_attention.size()) {
+            throw std::runtime_error(
+                "failed to copy supervised cross-attention"
+            );
+        }
+
+        std::vector<float> attention(
+            generated.size() *
+            static_cast<std::size_t>(attention_frames),
+            0.0F
+        );
+        for (std::size_t token = 0; token < generated.size(); ++token) {
+            const std::size_t source_token =
+                first_generated_row + token;
+            for (int frame = 0; frame < attention_frames; ++frame) {
+                double total = 0.0;
+                for (int head = 0; head < selected_heads; ++head) {
+                    const std::size_t source =
+                        source_token +
+                        static_cast<std::size_t>(captured_tokens) *
+                            static_cast<std::size_t>(frame) +
+                        static_cast<std::size_t>(captured_tokens) *
+                            static_cast<std::size_t>(attention_frames) *
+                            static_cast<std::size_t>(head);
+                    total += raw_attention[source];
+                }
+                attention[
+                    token * static_cast<std::size_t>(attention_frames) +
+                    static_cast<std::size_t>(frame)
+                ] = static_cast<float>(
+                    total / static_cast<double>(selected_heads)
+                );
+            }
+        }
+
+        const int mel_frames =
+            whisper_mel_n_frames_from_state(state.get());
+        const int mel_bins =
+            whisper_mel_n_mels_from_state(state.get());
+        const std::size_t mel_count =
+            static_cast<std::size_t>(mel_frames) *
+            static_cast<std::size_t>(mel_bins);
+        std::vector<float> mel(mel_count);
+        if (mel_count == 0 ||
+            whisper_mel_copy_from_state(
+                state.get(), mel.data(), mel.size()
+            ) != mel.size()) {
+            throw std::runtime_error(
+                "failed to copy the word-timestamp spectrogram"
+            );
+        }
+
+        std::vector<std::string> pieces;
+        pieces.reserve(generated.size());
+        for (const int token : generated) {
+            const char * raw =
+                whisper_token_to_str(context.get(), token);
+            pieces.emplace_back(raw == nullptr ? "" : raw);
+        }
+        return detail::extract_word_timings(
+            generated,
+            pieces,
+            attention,
+            attention_frames,
+            mel,
+            mel_bins,
+            mel_frames
+        );
+    }
+
     std::string decode_text(const std::vector<int> & tokens) const {
         std::string text;
         for (const int token : tokens) {
@@ -443,6 +676,7 @@ TranscriptionResult Model::transcribe(
     result.mode = options.verbatimize_transcript.has_value()
         ? Mode::Verbatimize
         : options.mode;
+    result.word_timestamps = options.word_timestamps;
     result.duration_seconds =
         static_cast<double>(audio.size()) / kSampleRate;
 
@@ -486,25 +720,114 @@ TranscriptionResult Model::transcribe(
         );
         const std::string raw_text = impl_->decode_text(tokens);
         const auto words = split_words(raw_text);
+        std::vector<detail::AlignedWord> aligned_words;
+        if (options.word_timestamps) {
+            aligned_words = impl_->align_chunk_words(
+                audio.data() + start,
+                static_cast<int>(end - start),
+                prompt,
+                tokens,
+                options.threads
+            );
+        }
 
         std::size_t keep = words.size();
-        if (!is_last && words.size() >
-            static_cast<std::size_t>(options.drop_words)) {
-            keep -= static_cast<std::size_t>(options.drop_words);
+        if (!is_last) {
+            const auto drop =
+                static_cast<std::size_t>(options.drop_words);
+            keep = words.size() > drop ? words.size() - drop : 0;
         }
+        if (options.word_timestamps && !is_last) {
+            // Give each stride interval to exactly one chunk. Everything
+            // beginning in this chunk's trailing overlap is re-covered by
+            // the next window, so it must not be emitted twice.
+            for (std::size_t i = 0; i < aligned_words.size(); ++i) {
+                if (aligned_words[i].start_seconds.has_value() &&
+                    *aligned_words[i].start_seconds >=
+                        options.stride_seconds) {
+                    keep = std::min(words.size(), i);
+                    break;
+                }
+            }
+        }
+
+        std::size_t prefix_skip = chunk_index == 0
+            ? 0
+            : detail::duplicate_prefix_words(
+                confirmed_words, words, keep
+            );
+        prefix_skip = std::min(prefix_skip, keep);
+
+        const double chunk_start_seconds =
+            static_cast<double>(start) / kSampleRate;
+        if (options.word_timestamps && !result.words.empty()) {
+            // Catch the one word that can straddle the ownership cutoff.
+            // This comparison changes the text range too, so JSON/plain text
+            // remain one-to-one with the retained timestamps.
+            while (prefix_skip < keep &&
+                   prefix_skip < aligned_words.size()) {
+                const auto & aligned = aligned_words[prefix_skip];
+                if (!aligned.start_seconds.has_value()) {
+                    break;
+                }
+                const double absolute_start =
+                    chunk_start_seconds + *aligned.start_seconds;
+                if (!detail::equivalent_word(
+                        aligned.word, result.words.back().word
+                    ) ||
+                    absolute_start >
+                        result.words.back().end_seconds + 0.12) {
+                    break;
+                }
+                ++prefix_skip;
+            }
+        }
+
         confirmed_words.insert(
-            confirmed_words.end(), words.begin(), words.begin() + keep
+            confirmed_words.end(),
+            words.begin() + prefix_skip,
+            words.begin() + keep
         );
 
         ChunkResult chunk;
         chunk.index = chunk_index;
-        chunk.start_seconds =
-            static_cast<double>(start) / kSampleRate;
+        chunk.start_seconds = chunk_start_seconds;
         chunk.end_seconds =
             static_cast<double>(end) / kSampleRate;
-        chunk.text = join_words(words, 0, keep);
+        chunk.text = join_words(words, prefix_skip, keep);
         chunk.context = continuation_context;
         chunk.is_last = is_last;
+
+        if (options.word_timestamps) {
+            const std::size_t aligned_keep =
+                std::min(keep, aligned_words.size());
+            const double chunk_duration =
+                static_cast<double>(end - start) / kSampleRate;
+            for (std::size_t i = prefix_skip; i < aligned_keep; ++i) {
+                const auto & aligned = aligned_words[i];
+                if (!aligned.start_seconds.has_value() ||
+                    !aligned.end_seconds.has_value()) {
+                    continue;
+                }
+                double word_start = chunk.start_seconds + std::clamp(
+                    *aligned.start_seconds, 0.0, chunk_duration
+                );
+                double word_end = chunk.start_seconds + std::clamp(
+                    *aligned.end_seconds, 0.0, chunk_duration
+                );
+                if (!result.words.empty() &&
+                    word_start < result.words.back().end_seconds) {
+                    word_start = result.words.back().end_seconds;
+                }
+                word_end = std::max(word_start, word_end);
+
+                WordTimestamp timestamp{
+                    aligned.word, word_start, word_end,
+                };
+                chunk.words.push_back(timestamp);
+                result.words.push_back(std::move(timestamp));
+            }
+        }
         result.chunks.push_back(std::move(chunk));
 
         if (is_last) {
