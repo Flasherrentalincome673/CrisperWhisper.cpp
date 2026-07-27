@@ -240,27 +240,20 @@ jobs:
           cuda: "12.8.1"
           method: network
           sub-packages: >-
-            ["nvcc", "cudart", "cublas", "nvjitlink", "cccl",
-            "profiler_api", "visual_studio_integration"]
+            ["nvcc", "cudart", "cublas", "cublas_dev", "thrust",
+            "nvjitlink"]
+          use-github-cache: false
+          use-local-cache: false
+          log-file-suffix: windows-cuda-12.8.1
 
-      - name: Configure CUDA release
+      - name: Build and test CUDA release
         shell: pwsh
         run: |
-          cmake -S . -B build `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            -DCRISPERWHISPER_CUDA=ON `
-            -DCRISPERWHISPER_CPU_PROFILE=balance `
-            -DCRISPERWHISPER_BUILD_TESTS=ON `
-            -DCRISPERWHISPER_BUILD_BENCHMARKS=OFF `
-            -DCRISPERWHISPER_STATIC_MSVC_RUNTIME=ON `
-            "-DCMAKE_CUDA_ARCHITECTURES=86;89;120"
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+          ./scripts/build.ps1 `
+            -BuildDirectory build `
+            -Configuration Release `
+            -CudaArchitectures "86;89;120" `
+            -CpuProfile balance
 
       - name: Stage Windows CUDA package
         shell: pwsh
