@@ -5,7 +5,7 @@
 # CrisperWhisper.cpp
 
 [![CI](https://github.com/Saganaki22/CrisperWhisper.cpp/actions/workflows/native.yml/badge.svg?branch=main)](https://github.com/Saganaki22/CrisperWhisper.cpp/actions/workflows/native.yml)
-[![Release](https://img.shields.io/badge/release-v1.1.0-blueviolet)](https://github.com/Saganaki22/CrisperWhisper.cpp/tree/v1.1.0)
+[![Release](https://img.shields.io/badge/release-v1.1.1-blueviolet)](https://github.com/Saganaki22/CrisperWhisper.cpp/tree/v1.1.1)
 [![Paper](https://img.shields.io/badge/arXiv-2607.18934-B31B1B?logo=arxiv)](https://arxiv.org/abs/2607.18934)
 [![GGML Models](https://img.shields.io/badge/Hugging%20Face-GGML%20models-FFD21E?logo=huggingface)](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML)
 [![Official](https://img.shields.io/badge/official-nyrahealth%2FCrisperWhisper-181717?logo=github)](https://github.com/nyrahealth/CrisperWhisper)
@@ -42,7 +42,7 @@ ready-to-run GGML models are available from the link above.
 | --- | --- |
 | Windows 10/11 x64 | Supported |
 | Linux x86-64 | Supported |
-| Linux ARM64 CPU | Experimental Ubuntu 22.04+ release; native Turbo smoke-test CI |
+| Linux ARM64 CPU | Ubuntu 22.04+ portable release; Orange Pi 5 Pro validated |
 | NVIDIA CUDA | RTX 30 / 40 / 50 series |
 | CPU-only inference | Portable, balanced AVX2, and native-fast profiles |
 | Verbatim transcription | Supported |
@@ -59,18 +59,18 @@ ready-to-run GGML models are available from the link above.
 
 ## Downloads
 
-[GitHub Releases](https://github.com/Saganaki22/CrisperWhisper.cpp/releases/tag/v1.1.0)
+[GitHub Releases](https://github.com/Saganaki22/CrisperWhisper.cpp/releases/tag/v1.1.1)
 contains the native runtime archives; model weights are downloaded separately
 from [Hugging Face](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
 
 | Package | Intended system |
 | --- | --- |
-| `crisperwhisper-v1.1.0-windows-x64-cuda-rtx30-40-50.zip` | RTX 3090, 4090, 5090, and compatible NVIDIA GPUs; includes CPU fallback |
-| `crisperwhisper-v1.1.0-windows-x64-cpu-portable.zip` | Broad x64 CPU compatibility |
-| `crisperwhisper-v1.1.0-windows-x64-cpu-avx2.zip` | Faster general build for AVX2-capable x64 CPUs |
-| `crisperwhisper-v1.1.0-linux-x64-cpu-portable.zip` | Broad Linux x64 CPU compatibility |
-| `crisperwhisper-v1.1.0-linux-x64-cpu-avx2.zip` | Faster Linux build for AVX2-capable x64 CPUs |
-| `crisperwhisper-v1.1.0-linux-arm64-cpu-portable.zip` | Experimental Linux ARM64 CPU build for GLIBC 2.35+ systems, including Ubuntu 22.04 Orange Pi |
+| `crisperwhisper-v1.1.1-windows-x64-cuda-rtx30-40-50.zip` | RTX 3090, 4090, 5090, and compatible NVIDIA GPUs; includes CPU fallback |
+| `crisperwhisper-v1.1.1-windows-x64-cpu-portable.zip` | Broad x64 CPU compatibility |
+| `crisperwhisper-v1.1.1-windows-x64-cpu-avx2.zip` | Faster general build for AVX2-capable x64 CPUs |
+| `crisperwhisper-v1.1.1-linux-x64-cpu-portable.zip` | Broad Linux x64 CPU compatibility |
+| `crisperwhisper-v1.1.1-linux-x64-cpu-avx2.zip` | Faster Linux build for AVX2-capable x64 CPUs |
+| `crisperwhisper-v1.1.1-linux-arm64-cpu-portable.zip` | Ubuntu 22.04+ ARM64 CPU build, validated on an Orange Pi 5 Pro |
 
 Linux CUDA remains a source build until a Linux-built package is verified.
 No model file is duplicated inside a GitHub archive.
@@ -476,16 +476,18 @@ This does not naively concatenate overlapping model output:
 - With `--word-timestamps`, the 26-second stride is an ownership cutoff.
   Words beginning in a chunk's trailing overlap are emitted by the next
   window, not both windows.
-- Exact normalized suffix/prefix matches are removed at each seam.
-- A word straddling the cutoff is deduplicated by text and time.
+- A word straddling the cutoff is deduplicated only when its normalized text
+  and absolute time both match the preceding word. Repeated speech elsewhere
+  is never removed merely because its text matches an earlier passage.
 - Emitted word times are clamped and monotonized, so `start <= end` and a
   later word never begins before the previous emitted word ends.
 - Without word timestamps, the fixed boundary tail remains as a fallback and
-  the same text seam matcher removes exact repeated sequences.
+  a normalized text seam matcher removes exact repeated sequences.
 
-The bundled 55-second repeated-JFK regression completed with zero invalid
-timestamps, zero overlapping adjacent word pairs, and zero adjacent
-text/timestamp duplicates.
+The bundled 55-second repeated-JFK regression returns all five repetitions
+(110 timed words across two chunks), with zero invalid timestamps, zero
+overlapping adjacent word pairs, zero adjacent text/timestamp duplicates, and
+no missing chunk-boundary passage.
 
 </details>
 
@@ -625,15 +627,16 @@ ctest --test-dir build --output-on-failure
 ```
 
 The repository includes a six-job x86-64 CPU matrix covering portable,
-balanced, and fast profiles on both `windows-latest` and `ubuntu-22.04`, plus
+balanced, and fast profiles on both Windows and `ubuntu-22.04`, plus
 a native `ubuntu-22.04-arm` portable ARM64 job. ARM64 release builds download
-the Turbo GGML model and run a timestamped JFK transcription before packaging.
-Linux release jobs reject binaries requiring newer than GLIBC 2.35 and
-statically link the GNU C++ runtime. Linux ARM64 remains experimental pending
-broader device testing, including Orange Pi. Windows ARM64 and ARM CUDA/Jetson
-are not supported in v1.1.0. CUDA execution should also be tested on the
-intended GPU architecture because standard hosted CI runners do not provide
-NVIDIA GPUs.
+the Turbo GGML model and run the 55-second, five-repetition timestamped JFK
+regression before packaging. Linux release jobs reject binaries requiring
+newer than GLIBC 2.35 and statically link the GNU C++ runtime. The ARM64 ZIP
+has also been validated on an Orange Pi 5 Pro running Ubuntu 22.04. Windows
+ARM64 and ARM CUDA/Jetson are not supported in v1.1.1. The Windows CUDA ZIP is
+built for compute capabilities 8.6, 8.9, and 12.0; runtime inference should
+also be tested on the intended GPU because hosted CI does not provide an
+NVIDIA GPU.
 
 A functional model test should verify:
 

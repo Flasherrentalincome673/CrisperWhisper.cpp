@@ -10,8 +10,8 @@ transcription does not require Python. Python is only needed when converting
 an original checkpoint yourself; preconverted models are available from
 [`drbaph/CrisperWhisper2.0-GGML`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
 
-Prebuilt x86-64 portable and AVX2 CPU ZIPs, plus an experimental ARM64
-portable CPU ZIP, are published on
+Prebuilt x86-64 portable and AVX2 CPU ZIPs, plus an ARM64 portable CPU ZIP,
+are published on
 [GitHub Releases](https://github.com/Saganaki22/CrisperWhisper.cpp/releases).
 Linux CUDA remains a native source build until the Linux CUDA archive has been
 built and verified on Linux. No Docker workflow is required by this guide.
@@ -26,18 +26,18 @@ Primary target:
 - CPU inference with ggml
 - NVIDIA CUDA inference when the CUDA toolkit is installed
 
-Experimental target:
+ARM64 target:
 
 - Linux ARM64 CPU with the `portable` profile
 - Native compile/unit-test CI on `ubuntu-22.04-arm`
-- Turbo-model timestamped inference smoke test on the native ARM64 runner
+- Turbo-model 55-second repeated-speech regression on the native ARM64 runner
 - Prebuilt `linux-arm64-cpu-portable` release archive
-- GLIBC 2.35 compatibility floor for Ubuntu 22.04-era systems
+- Built on Ubuntu 22.04 with a maximum required GLIBC symbol of 2.34
+- Validated on an Orange Pi 5 Pro running Ubuntu 22.04
 
-Linux ARM64 remains experimental pending testing on a wider range of boards,
-including Orange Pi. Windows ARM64 and ARM CUDA/Jetson are not v1.1.0 targets.
-The repository's primary CPU CI target is Ubuntu x86-64; other modern
-distributions should work through the same CMake build.
+Windows ARM64 and ARM CUDA/Jetson are not v1.1.1 targets. The repository's
+primary CPU CI target is Ubuntu x86-64; other modern distributions should work
+through the same CMake build.
 
 ## 1. Install build requirements
 
@@ -161,9 +161,10 @@ The CPU profile can be selected independently:
 ```
 
 On Linux ARM64, use `portable`. It is natively compiled and unit-tested in CI,
-and the release workflow runs a Turbo-model timestamped inference smoke test.
-Release binaries are built on Ubuntu 22.04 and reject dependencies newer than
-GLIBC 2.35. Board-specific performance and compatibility remain experimental:
+and the release workflow runs a Turbo-model, five-repetition long-form
+timestamp regression. Release binaries are built on Ubuntu 22.04, require no
+dynamic GNU C++ runtime, and reject GLIBC symbols newer than 2.35. The package
+has been validated on an Orange Pi 5 Pro:
 
 ```bash
 ./scripts/build.sh --cpu --cpu-profile portable

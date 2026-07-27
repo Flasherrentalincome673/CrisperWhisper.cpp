@@ -454,6 +454,35 @@ std::size_t duplicate_prefix_words(
     return best_consumed;
 }
 
+std::size_t timestamp_duplicate_prefix_words(
+    const std::vector<AlignedWord> & current,
+    const std::size_t current_end,
+    const double chunk_start_seconds,
+    const std::string & previous_word,
+    const double previous_end_seconds,
+    const double tolerance_seconds
+) {
+    const std::size_t usable_end =
+        std::min(current_end, current.size());
+    const double tolerance = std::max(0.0, tolerance_seconds);
+    std::size_t consumed = 0;
+
+    while (consumed < usable_end) {
+        const auto & aligned = current[consumed];
+        if (!aligned.start_seconds.has_value() ||
+            !equivalent_word(aligned.word, previous_word)) {
+            break;
+        }
+        const double absolute_start =
+            chunk_start_seconds + *aligned.start_seconds;
+        if (absolute_start > previous_end_seconds + tolerance) {
+            break;
+        }
+        ++consumed;
+    }
+    return consumed;
+}
+
 bool equivalent_word(
     const std::string & left,
     const std::string & right

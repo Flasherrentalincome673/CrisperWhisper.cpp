@@ -107,6 +107,31 @@ int main() {
             {"country."}, {"country"}, 1
         ) == 1
     );
+    const std::vector<crisperwhisper::detail::AlignedWord>
+        repeated_seam = {
+            {"Americans,", 0.04, 0.08},
+            {"ask", 0.12, 0.24},
+            {"not", 0.26, 0.34},
+            {"Americans", 12.0, 12.1},
+        };
+    assert(
+        crisperwhisper::detail::timestamp_duplicate_prefix_words(
+            repeated_seam,
+            repeated_seam.size(),
+            26.0,
+            "Americans",
+            26.08
+        ) == 1
+    );
+    assert(
+        crisperwhisper::detail::timestamp_duplicate_prefix_words(
+            repeated_seam,
+            repeated_seam.size(),
+            26.0,
+            "Americans",
+            25.90
+        ) == 0
+    );
     assert(crisperwhisper::detail::equivalent_word("we,", "WE"));
     return 0;
 }

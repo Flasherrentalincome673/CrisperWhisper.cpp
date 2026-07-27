@@ -751,37 +751,29 @@ TranscriptionResult Model::transcribe(
             }
         }
 
-        std::size_t prefix_skip = chunk_index == 0
-            ? 0
-            : detail::duplicate_prefix_words(
-                confirmed_words, words, keep
-            );
-        prefix_skip = std::min(prefix_skip, keep);
-
         const double chunk_start_seconds =
             static_cast<double>(start) / kSampleRate;
-        if (options.word_timestamps && !result.words.empty()) {
+        std::size_t prefix_skip = 0;
+        if (chunk_index > 0 && options.word_timestamps &&
+            !result.words.empty()) {
             // Catch the one word that can straddle the ownership cutoff.
-            // This comparison changes the text range too, so JSON/plain text
-            // remain one-to-one with the retained timestamps.
-            while (prefix_skip < keep &&
-                   prefix_skip < aligned_words.size()) {
-                const auto & aligned = aligned_words[prefix_skip];
-                if (!aligned.start_seconds.has_value()) {
-                    break;
-                }
-                const double absolute_start =
-                    chunk_start_seconds + *aligned.start_seconds;
-                if (!detail::equivalent_word(
-                        aligned.word, result.words.back().word
-                    ) ||
-                    absolute_start >
-                        result.words.back().end_seconds + 0.12) {
-                    break;
-                }
-                ++prefix_skip;
-            }
+            // Requiring both equivalent text and coincident absolute time
+            // prevents repeated speech from being deleted as false overlap.
+            prefix_skip = detail::timestamp_duplicate_prefix_words(
+                aligned_words,
+                keep,
+                chunk_start_seconds,
+                result.words.back().word,
+                result.words.back().end_seconds
+            );
+        } else if (chunk_index > 0) {
+            // Timings were not requested, so retain the legacy text-only
+            // seam fallback.
+            prefix_skip = detail::duplicate_prefix_words(
+                confirmed_words, words, keep
+            );
         }
+        prefix_skip = std::min(prefix_skip, keep);
 
         confirmed_words.insert(
             confirmed_words.end(),

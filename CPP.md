@@ -15,8 +15,8 @@ dependency.
 - WAV, MP3, FLAC, and Ogg input, decoded and resampled to mono 16 kHz.
 - CUDA acceleration, including RTX 50-series GPUs.
 - CPU fallback.
-- Experimental Linux ARM64 portable CPU release with native compilation,
-  unit tests, and a Turbo-model timestamped inference smoke test.
+- Linux ARM64 portable CPU release with native compilation, unit tests, a
+  Turbo-model long-form timestamp regression, and Orange Pi 5 Pro validation.
 - Audio longer than 30 seconds using 30-second windows, 26-second stride,
   12-word continuation context, and boundary re-coverage.
 - Verbatimize prompts.
@@ -164,11 +164,11 @@ You can make the choice explicit:
 ./scripts/build.sh --cpu --cpu-profile fast
 ```
 
-Linux ARM64 CPU builds are experimental. Use the portable profile; the
-repository builds and unit-tests it on a native GitHub ARM64 runner. ARM64
-release jobs also run the Turbo model against `samples/jfk.wav` with
-supervised word timestamps before packaging. Release binaries target Ubuntu
-22.04-era GLIBC 2.35 and statically link the GNU C++ runtime:
+For Linux ARM64 CPU, use the portable profile. The repository builds and
+unit-tests it on a native GitHub ARM64 runner. ARM64 release jobs also run the
+Turbo model against a 55-second repeated-JFK file with supervised word
+timestamps before packaging. Release binaries target Ubuntu 22.04-era GLIBC
+and statically link the GNU C++ runtime:
 
 ```bash
 ./scripts/build.sh --cpu --cpu-profile portable

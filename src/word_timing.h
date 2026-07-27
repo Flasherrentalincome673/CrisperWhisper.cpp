@@ -37,6 +37,19 @@ std::size_t duplicate_prefix_words(
     std::size_t current_end
 );
 
+// Returns the number of leading aligned words that duplicate the final
+// emitted word at a chunk seam. Unlike the text-only fallback, this requires
+// the words to coincide in absolute time, so repeated speech later in the
+// recording is never mistaken for overlap.
+std::size_t timestamp_duplicate_prefix_words(
+    const std::vector<AlignedWord> & current,
+    std::size_t current_end,
+    double chunk_start_seconds,
+    const std::string & previous_word,
+    double previous_end_seconds,
+    double tolerance_seconds = 0.12
+);
+
 bool equivalent_word(
     const std::string & left,
     const std::string & right

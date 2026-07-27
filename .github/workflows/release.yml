@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing release tag to package
         required: true
-        default: v1.1.0
+        default: v1.1.1
 
 permissions:
   contents: write
@@ -23,13 +23,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2022
             platform: windows-x64
             executable: build/bin/Release/crisper-whisper.exe
             profile: portable
             variant: cpu-portable
             linker_flags: ""
-          - os: windows-latest
+          - os: windows-2022
             platform: windows-x64
             executable: build/bin/Release/crisper-whisper.exe
             profile: balance
@@ -56,18 +56,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }} / ${{ matrix.profile }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
-
-      - name: Check out current release documentation
-        if: >-
-          github.event_name == 'workflow_dispatch' &&
-          matrix.platform == 'linux-arm64'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          path: release-docs
 
       - name: Configure
         shell: bash
@@ -125,14 +116,31 @@ jobs:
             --output .arm-smoke/ggml-crisperwhisper-turbo-f16.bin \
             "https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-turbo-f16.bin?download=true"
 
-      - name: Run ARM64 model inference smoke test
+      - name: Create ARM64 repeated-speech regression audio
+        if: matrix.platform == 'linux-arm64'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import wave
+
+          with wave.open("samples/jfk.wav", "rb") as source:
+              parameters = source.getparams()
+              frames = source.readframes(source.getnframes())
+
+          with wave.open(".arm-smoke/jfk-5x.wav", "wb") as target:
+              target.setparams(parameters)
+              for _ in range(5):
+                  target.writeframes(frames)
+          PY
+
+      - name: Run ARM64 long-form timestamp regression
         if: matrix.platform == 'linux-arm64'
         shell: bash
         run: |
           test "$(uname -m)" = "aarch64"
           "${{ matrix.executable }}" \
             --model .arm-smoke/ggml-crisperwhisper-turbo-f16.bin \
-            --file samples/jfk.wav \
+            --file .arm-smoke/jfk-5x.wav \
             --mode verbatim \
             --language en \
             --word-timestamps \
@@ -144,14 +152,42 @@ jobs:
               result = json.load(handle)
 
           words = result.get("words", [])
-          if len(words) < 10:
-              raise SystemExit(f"ARM64 smoke test emitted only {len(words)} words")
+          chunks = result.get("chunks", [])
+          text = result.get("text", "")
+          if len(words) != 110:
+              raise SystemExit(
+                  f"Expected 110 timed words from five JFK copies, got {len(words)}"
+              )
+          if len(chunks) != 2:
+              raise SystemExit(f"Expected two long-form chunks, got {len(chunks)}")
+          if text.count("Americans") != 5 or text.lower().count("country") != 10:
+              raise SystemExit("Repeated speech was lost or duplicated at the seam")
           if any(float(word["start"]) > float(word["end"]) for word in words):
-              raise SystemExit("ARM64 smoke test emitted an invalid word timestamp")
-          if "fellow Americans" not in result.get("text", ""):
-              raise SystemExit("ARM64 Turbo smoke-test transcript did not match JFK")
+              raise SystemExit("ARM64 regression emitted an invalid word timestamp")
 
-          print(f"ARM64 Turbo smoke test passed with {len(words)} timed words")
+          maximum_gap = 0.0
+          for previous, current in zip(words, words[1:]):
+              if float(current["start"]) < float(previous["end"]):
+                  raise SystemExit("ARM64 regression emitted overlapping timestamps")
+              maximum_gap = max(
+                  maximum_gap,
+                  float(current["start"]) - float(previous["end"]),
+              )
+              if (
+                  current["word"].casefold() == previous["word"].casefold()
+                  and abs(float(current["start"]) - float(previous["start"])) <= 0.12
+              ):
+                  raise SystemExit("ARM64 regression emitted an adjacent duplicate")
+          if maximum_gap > 5.0:
+              raise SystemExit(
+                  f"ARM64 regression contains a {maximum_gap:.2f}s timestamp hole"
+              )
+
+          print(
+              "ARM64 repeated-speech regression passed: "
+              f"{len(words)} words, {len(chunks)} chunks, "
+              f"maximum gap {maximum_gap:.2f}s"
+          )
           PY
 
       - name: Stage Windows package
@@ -169,17 +205,13 @@ jobs:
         shell: bash
         run: |
           package="crisperwhisper-${RELEASE_TAG}-${{ matrix.platform }}-${{ matrix.variant }}"
-          docs_root="."
-          if [[ -d release-docs ]]; then
-            docs_root="release-docs"
-          fi
           mkdir -p "package/${package}/samples"
           cp "${{ matrix.executable }}" "package/${package}/"
-          cp "${docs_root}/README.md" \
-            "${docs_root}/CPP.md" \
-            "${docs_root}/BUILD_LINUX.md" \
-            "${docs_root}/LICENSE" \
-            "${docs_root}/crisperwhispercpp.png" \
+          cp README.md \
+            CPP.md \
+            BUILD_LINUX.md \
+            LICENSE \
+            crisperwhispercpp.png \
             "package/${package}/"
           cp samples/jfk.wav samples/README.md samples/LICENSE.whisper.cpp \
             "package/${package}/samples/"
@@ -188,25 +220,81 @@ jobs:
             cmake -E tar cf "${package}.zip" --format=zip "${package}"
           )
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.platform }}-${{ matrix.profile }}
           path: package/*.zip
           if-no-files-found: error
 
+  cuda-package:
+    runs-on: windows-2022
+    name: windows-x64 / CUDA RTX 30-40-50
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Install CUDA Toolkit 12.8
+        uses: Jimver/cuda-toolkit@3d45d157f327c09c04b50ee6ccdea2d9d017ec76 # v0.2.35
+        with:
+          cuda: "12.8.1"
+          method: network
+          sub-packages: >-
+            ["nvcc", "cudart", "cublas", "nvjitlink", "cccl",
+            "profiler_api", "visual_studio_integration"]
+
+      - name: Configure CUDA release
+        shell: pwsh
+        run: |
+          cmake -S . -B build `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCRISPERWHISPER_CUDA=ON `
+            -DCRISPERWHISPER_CPU_PROFILE=balance `
+            -DCRISPERWHISPER_BUILD_TESTS=ON `
+            -DCRISPERWHISPER_BUILD_BENCHMARKS=OFF `
+            -DCRISPERWHISPER_STATIC_MSVC_RUNTIME=ON `
+            "-DCMAKE_CUDA_ARCHITECTURES=86;89;120"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Stage Windows CUDA package
+        shell: pwsh
+        run: >-
+          ./scripts/package-windows.ps1
+          -BuildDirectory build
+          -Variant cuda-rtx30-40-50
+          -Version $env:RELEASE_TAG
+          -OutputDirectory package
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64-cuda-rtx30-40-50
+          path: package/*.zip
+          if-no-files-found: error
+
   publish:
-    needs: cpu-packages
+    needs: [cpu-packages, cuda-package]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - uses: actions/download-artifact@v8
         with:
           pattern: "*"
           path: release-assets
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
+          body_path: RELEASE_NOTES.md
           files: |
             release-assets/*.zip

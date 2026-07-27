@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("cuda-rtx30-40-50", "cpu-portable", "cpu-avx2")]
     [string]$Variant,
-    [string]$Version = "v1.1.0",
+    [string]$Version = "v1.1.1",
     [string]$OutputDirectory = "artifacts"
 )
 
