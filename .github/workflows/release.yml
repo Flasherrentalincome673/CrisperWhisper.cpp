@@ -290,10 +290,10 @@ jobs:
           cuda: "12.8.1"
           method: network
           sub-packages: >-
-            ["nvcc", "cudart", "cudart-dev", "driver-dev", "cccl",
-            "nvjitlink", "nvjitlink-dev"]
+            ["nvcc", "cudart", "cudart-dev", "driver-dev", "cccl"]
           non-cuda-sub-packages: >-
-            ["libcublas", "libcublas-dev"]
+            ["libcublas", "libcublas-dev", "libnvjitlink",
+            "libnvjitlink-dev"]
           use-github-cache: false
           use-local-cache: false
           log-file-suffix: linux-cuda-12.8.1
