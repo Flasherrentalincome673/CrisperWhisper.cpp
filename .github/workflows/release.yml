@@ -313,7 +313,7 @@ jobs:
             -DCRISPERWHISPER_BUILD_BENCHMARKS=OFF \
             -DCMAKE_CUDA_ARCHITECTURES="86;89;120" \
             -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++"
-          cmake --build build --config Release --parallel
+          cmake --build build --config Release --parallel 2
           ctest --test-dir build -C Release --output-on-failure
 
       - name: Stage and verify Linux CUDA package
