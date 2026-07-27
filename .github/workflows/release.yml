@@ -10,6 +10,11 @@ on:
         description: Existing release tag to package
         required: true
         default: v1.1.1
+      linux_cuda_only:
+        description: Build and publish only the Linux x64 CUDA package
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -19,6 +24,7 @@ env:
 
 jobs:
   cpu-packages:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.linux_cuda_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -227,6 +233,7 @@ jobs:
           if-no-files-found: error
 
   cuda-package:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.linux_cuda_only }}
     runs-on: windows-2022
     name: windows-x64 / CUDA RTX 30-40-50
     steps:
@@ -369,8 +376,14 @@ jobs:
             env -u LD_LIBRARY_PATH ldd "${package_dir}/crisper-whisper"
           )"
           printf '%s\n' "${dependency_report}"
-          if grep -q "not found" <<<"${dependency_report}"; then
-            echo "The packaged executable has an unresolved dependency." >&2
+          unexpected_missing="$(
+            grep "not found" <<<"${dependency_report}" |
+              grep -Fv "libcuda.so.1 => not found" ||
+              true
+          )"
+          if [[ -n "${unexpected_missing}" ]]; then
+            echo "The packaged executable has an unexpected unresolved dependency:" >&2
+            printf '%s\n' "${unexpected_missing}" >&2
             exit 1
           fi
           for soname in \
@@ -407,7 +420,19 @@ jobs:
             exit 1
           fi
 
-          env -u LD_LIBRARY_PATH \
+          driver_stub="$(
+            find "${CUDA_PATH}/targets/x86_64-linux/lib/stubs" \
+              -name "libcuda.so" \
+              -print \
+              -quit
+          )"
+          if [[ -z "${driver_stub}" ]]; then
+            echo "NVIDIA's non-redistributable driver stub was not found." >&2
+            exit 1
+          fi
+          mkdir -p .cuda-driver-stub
+          ln -s "${driver_stub}" .cuda-driver-stub/libcuda.so.1
+          LD_LIBRARY_PATH="${PWD}/.cuda-driver-stub" \
             "${package_dir}/crisper-whisper" --help >/dev/null
           (
             cd package
@@ -422,6 +447,17 @@ jobs:
 
   publish:
     needs: [cpu-packages, cuda-package, linux-cuda-package]
+    if: >-
+      ${{
+        always() &&
+        needs.linux-cuda-package.result == 'success' &&
+        (
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.linux_cuda_only) ||
+          (needs.cpu-packages.result == 'success' &&
+            needs.cuda-package.result == 'success')
+        )
+      }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
