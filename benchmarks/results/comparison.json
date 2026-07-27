@@ -1,0 +1,361 @@
+{
+  "generated_utc": "2026-07-27T15:18:22.063248+00:00",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.10",
+  "configuration": {
+    "gpu": "NVIDIA GeForce RTX 5090, 32607 MiB",
+    "model": "nyralabs/CrisperWhisper2.0_large",
+    "dtype": "FP16",
+    "mode": "verbatim",
+    "short_audio_seconds": 11,
+    "long_audio_seconds": 55,
+    "long_audio_kind": "synthetic repetition of jfk.wav",
+    "cold_runs": 3,
+    "warm_runs": 5,
+    "long_runs": 3,
+    "warmup_runs": 1
+  },
+  "cold_start": {
+    "cpp_process_seconds": 3.5856970000022557,
+    "python_process_seconds": 14.297223999994458,
+    "cpp_model_load_seconds": 2.7590099,
+    "python_model_load_seconds": 8.235646000000997,
+    "cpp_speedup": 3.9872928471048903,
+    "raw": {
+      "cpp": [
+        {
+          "process_seconds": 3.445318500002031,
+          "model_load_seconds": 2.6641898,
+          "payload": {
+            "engine": "cpp-ggml-cuda",
+            "model_load_seconds": 2.6641898,
+            "warmup_runs": 0,
+            "runs": [
+              {
+                "call_seconds": 0.4542489,
+                "processing_seconds": 0.4537928,
+                "duration_seconds": 11,
+                "rtf": 0.0412953545,
+                "chunks": 1,
+                "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+              }
+            ]
+          }
+        },
+        {
+          "process_seconds": 3.5856970000022557,
+          "model_load_seconds": 2.7590099,
+          "payload": {
+            "engine": "cpp-ggml-cuda",
+            "model_load_seconds": 2.7590099,
+            "warmup_runs": 0,
+            "runs": [
+              {
+                "call_seconds": 0.5140608,
+                "processing_seconds": 0.5135581,
+                "duration_seconds": 11,
+                "rtf": 0.0467328,
+                "chunks": 1,
+                "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+              }
+            ]
+          }
+        },
+        {
+          "process_seconds": 3.6660138000006555,
+          "model_load_seconds": 2.7978237,
+          "payload": {
+            "engine": "cpp-ggml-cuda",
+            "model_load_seconds": 2.7978237,
+            "warmup_runs": 0,
+            "runs": [
+              {
+                "call_seconds": 0.5529535,
+                "processing_seconds": 0.5524883,
+                "duration_seconds": 11,
+                "rtf": 0.0502685,
+                "chunks": 1,
+                "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+              }
+            ]
+          }
+        }
+      ],
+      "python": [
+        {
+          "process_seconds": 14.297223999994458,
+          "model_load_seconds": 8.261150199992699,
+          "payload": {
+            "engine": "python-transformers-cuda",
+            "torch_version": "2.11.0+cu130",
+            "cuda_version": "13.0",
+            "model_load_seconds": 8.261150199992699,
+            "warmup_runs": 0,
+            "runs": [
+              {
+                "call_seconds": 2.6141446999972686,
+                "processing_seconds": 2.605,
+                "duration_seconds": 11.0,
+                "rtf": 0.23764951818156987,
+                "chunks": 0,
+                "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+              }
+            ]
+          }
+        },
+        {
+          "process_seconds": 14.280875900003593,
+          "model_load_seconds": 8.203840000001946,
+          "payload": {
+            "engine": "python-transformers-cuda",
+            "torch_version": "2.11.0+cu130",
+            "cuda_version": "13.0",
+            "model_load_seconds": 8.203840000001946,
+            "warmup_runs": 0,
+            "runs": [
+              {
+                "call_seconds": 2.6950300999887986,
+                "processing_seconds": 2.684,
+                "duration_seconds": 11.0,
+                "rtf": 0.24500273636261805,
+                "chunks": 0,
+                "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+              }
+            ]
+          }
+        },
+        {
+          "process_seconds": 14.298977300000843,
+          "model_load_seconds": 8.235646000000997,
+          "payload": {
+            "engine": "python-transformers-cuda",
+            "torch_version": "2.11.0+cu130",
+            "cuda_version": "13.0",
+            "model_load_seconds": 8.235646000000997,
+            "warmup_runs": 0,
+            "runs": [
+              {
+                "call_seconds": 2.568285700006527,
+                "processing_seconds": 2.558,
+                "duration_seconds": 11.0,
+                "rtf": 0.23348051818241153,
+                "chunks": 0,
+                "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "warm_short": {
+    "cpp": {
+      "seconds": 0.4615985,
+      "processing_seconds": 0.4612224,
+      "rtf": 0.0419635,
+      "duration": 11,
+      "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+      "chunks": 1
+    },
+    "python": {
+      "seconds": 1.9518405999988317,
+      "processing_seconds": 1.952,
+      "rtf": 0.17744005454534834,
+      "duration": 11.0,
+      "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+      "chunks": 0
+    },
+    "cpp_speedup": 4.228437917365051,
+    "agreement": {
+      "normalized_exact": true,
+      "word_error_rate": 0.0
+    },
+    "raw": {
+      "cpp": {
+        "engine": "cpp-ggml-cuda",
+        "model_load_seconds": 2.705173,
+        "warmup_runs": 1,
+        "runs": [
+          {
+            "call_seconds": 0.4671764,
+            "processing_seconds": 0.4665004,
+            "duration_seconds": 11,
+            "rtf": 0.0424705818,
+            "chunks": 1,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 0.4677975,
+            "processing_seconds": 0.4672004,
+            "duration_seconds": 11,
+            "rtf": 0.0425270455,
+            "chunks": 1,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 0.4593013,
+            "processing_seconds": 0.4583094,
+            "duration_seconds": 11,
+            "rtf": 0.0417546636,
+            "chunks": 1,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 0.4539146,
+            "processing_seconds": 0.4531791,
+            "duration_seconds": 11,
+            "rtf": 0.0412649636,
+            "chunks": 1,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 0.4615985,
+            "processing_seconds": 0.4612224,
+            "duration_seconds": 11,
+            "rtf": 0.0419635,
+            "chunks": 1,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          }
+        ]
+      },
+      "python": {
+        "engine": "python-transformers-cuda",
+        "torch_version": "2.11.0+cu130",
+        "cuda_version": "13.0",
+        "model_load_seconds": 8.530549199989764,
+        "warmup_runs": 1,
+        "runs": [
+          {
+            "call_seconds": 1.9705071000062162,
+            "processing_seconds": 1.97,
+            "duration_seconds": 11.0,
+            "rtf": 0.1791370090914742,
+            "chunks": 0,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 1.9659883999993326,
+            "processing_seconds": 1.966,
+            "duration_seconds": 11.0,
+            "rtf": 0.17872621818175752,
+            "chunks": 0,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 1.9518405999988317,
+            "processing_seconds": 1.952,
+            "duration_seconds": 11.0,
+            "rtf": 0.17744005454534834,
+            "chunks": 0,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 1.092399999994086,
+            "processing_seconds": 1.092,
+            "duration_seconds": 11.0,
+            "rtf": 0.09930909090855328,
+            "chunks": 0,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 1.0475197000050684,
+            "processing_seconds": 1.047,
+            "duration_seconds": 11.0,
+            "rtf": 0.0952290636368244,
+            "chunks": 0,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          }
+        ]
+      }
+    }
+  },
+  "warm_longform": {
+    "cpp": {
+      "seconds": 2.0650281,
+      "processing_seconds": 2.0625953,
+      "rtf": 0.0375459655,
+      "duration": 55,
+      "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+      "chunks": 2
+    },
+    "python": {
+      "seconds": 6.190192499998375,
+      "processing_seconds": 6.19,
+      "rtf": 0.112548954545425,
+      "duration": 55.0,
+      "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+      "chunks": 2
+    },
+    "cpp_speedup": 2.997631121822688,
+    "agreement": {
+      "normalized_exact": true,
+      "word_error_rate": 0.0
+    },
+    "raw": {
+      "cpp": {
+        "engine": "cpp-ggml-cuda",
+        "model_load_seconds": 2.705038,
+        "warmup_runs": 1,
+        "runs": [
+          {
+            "call_seconds": 2.075352,
+            "processing_seconds": 2.0729343,
+            "duration_seconds": 55,
+            "rtf": 0.0377336727,
+            "chunks": 2,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 2.0650281,
+            "processing_seconds": 2.0625953,
+            "duration_seconds": 55,
+            "rtf": 0.0375459655,
+            "chunks": 2,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 2.0565265,
+            "processing_seconds": 2.0540539,
+            "duration_seconds": 55,
+            "rtf": 0.0373913909,
+            "chunks": 2,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          }
+        ]
+      },
+      "python": {
+        "engine": "python-transformers-cuda",
+        "torch_version": "2.11.0+cu130",
+        "cuda_version": "13.0",
+        "model_load_seconds": 5.862743999998202,
+        "warmup_runs": 1,
+        "runs": [
+          {
+            "call_seconds": 6.158651600009762,
+            "processing_seconds": 6.159,
+            "duration_seconds": 55.0,
+            "rtf": 0.11197548363654113,
+            "chunks": 2,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 6.190192499998375,
+            "processing_seconds": 6.19,
+            "duration_seconds": 55.0,
+            "rtf": 0.112548954545425,
+            "chunks": 2,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          },
+          {
+            "call_seconds": 6.222817400004715,
+            "processing_seconds": 6.223,
+            "duration_seconds": 55.0,
+            "rtf": 0.11314213454554027,
+            "chunks": 2,
+            "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country. And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+__pycache__/
+*.egg-info/
+dist/
+build/
+build-*/
+.pytest_cache/
+.venv/
+.venv-benchmark/
+models/*.bin
+models/*.partial
