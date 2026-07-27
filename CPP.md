@@ -15,8 +15,8 @@ dependency.
 - WAV, MP3, FLAC, and Ogg input, decoded and resampled to mono 16 kHz.
 - CUDA acceleration, including RTX 50-series GPUs.
 - CPU fallback.
-- Experimental Linux ARM64 CPU compilation; full model inference is not yet
-  validated on ARM hardware.
+- Experimental Linux ARM64 portable CPU release with native compilation,
+  unit tests, and a Small-model timestamped inference smoke test.
 - Audio longer than 30 seconds using 30-second windows, 26-second stride,
   12-word continuation context, and boundary re-coverage.
 - Verbatimize prompts.
@@ -165,8 +165,9 @@ You can make the choice explicit:
 ```
 
 Linux ARM64 CPU builds are experimental. Use the portable profile; the
-repository verifies it on a native GitHub ARM64 runner, but v1.1.0 does not
-claim full model-inference validation on ARM:
+repository builds and unit-tests it on a native GitHub ARM64 runner. ARM64
+release jobs also run the Small model against `samples/jfk.wav` with supervised
+word timestamps before packaging:
 
 ```bash
 ./scripts/build.sh --cpu --cpu-profile portable

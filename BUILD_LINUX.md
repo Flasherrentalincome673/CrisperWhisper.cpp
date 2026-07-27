@@ -10,7 +10,8 @@ transcription does not require Python. Python is only needed when converting
 an original checkpoint yourself; preconverted models are available from
 [`drbaph/CrisperWhisper2.0-GGML`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
 
-Prebuilt portable and AVX2 CPU ZIPs are published on
+Prebuilt x86-64 portable and AVX2 CPU ZIPs, plus an experimental ARM64
+portable CPU ZIP, are published on
 [GitHub Releases](https://github.com/Saganaki22/CrisperWhisper.cpp/releases).
 Linux CUDA remains a native source build until the Linux CUDA archive has been
 built and verified on Linux. No Docker workflow is required by this guide.
@@ -29,11 +30,13 @@ Experimental target:
 
 - Linux ARM64 CPU with the `portable` profile
 - Native compile/unit-test CI on `ubuntu-24.04-arm`
-- Full checkpoint inference not yet validated on ARM hardware
+- Small-model timestamped inference smoke test on the native ARM64 runner
+- Prebuilt `linux-arm64-cpu-portable` release archive
 
-Windows ARM64 and ARM CUDA/Jetson are not v1.1.0 targets. The repository's
-primary CPU CI target is Ubuntu x86-64; other modern distributions should work
-through the same CMake build.
+Linux ARM64 remains experimental pending testing on a wider range of boards,
+including Orange Pi. Windows ARM64 and ARM CUDA/Jetson are not v1.1.0 targets.
+The repository's primary CPU CI target is Ubuntu x86-64; other modern
+distributions should work through the same CMake build.
 
 ## 1. Install build requirements
 
@@ -156,8 +159,9 @@ The CPU profile can be selected independently:
 ./scripts/build.sh --cpu --cpu-profile fast     --build-dir build-cpu-fast
 ```
 
-On Linux ARM64, use `portable`. This is natively compiled and unit-tested in
-CI, but full model inference remains experimental:
+On Linux ARM64, use `portable`. It is natively compiled and unit-tested in CI,
+and the release workflow runs a Small-model timestamped inference smoke test.
+Board-specific performance and compatibility remain experimental:
 
 ```bash
 ./scripts/build.sh --cpu --cpu-profile portable

@@ -43,12 +43,26 @@ jobs:
             executable: build/bin/crisper-whisper
             profile: balance
             variant: cpu-avx2
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+            executable: build/bin/crisper-whisper
+            profile: portable
+            variant: cpu-portable
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }} / ${{ matrix.profile }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG }}
+
+      - name: Check out current release documentation
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          matrix.platform == 'linux-arm64'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: release-docs
 
       - name: Configure
         shell: bash
@@ -67,6 +81,44 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Download ARM64 smoke-test model
+        if: matrix.platform == 'linux-arm64'
+        shell: bash
+        run: |
+          mkdir -p .arm-smoke
+          curl --location --fail --retry 3 \
+            --output .arm-smoke/ggml-crisperwhisper-small-f16.bin \
+            "https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-small-f16.bin?download=true"
+
+      - name: Run ARM64 model inference smoke test
+        if: matrix.platform == 'linux-arm64'
+        shell: bash
+        run: |
+          test "$(uname -m)" = "aarch64"
+          "${{ matrix.executable }}" \
+            --model .arm-smoke/ggml-crisperwhisper-small-f16.bin \
+            --file samples/jfk.wav \
+            --mode verbatim \
+            --language en \
+            --word-timestamps \
+            --json > .arm-smoke/result.json
+          python3 - <<'PY'
+          import json
+
+          with open(".arm-smoke/result.json", encoding="utf-8") as handle:
+              result = json.load(handle)
+
+          words = result.get("words", [])
+          if len(words) < 10:
+              raise SystemExit(f"ARM64 smoke test emitted only {len(words)} words")
+          if any(float(word["start"]) > float(word["end"]) for word in words):
+              raise SystemExit("ARM64 smoke test emitted an invalid word timestamp")
+          if "fellow Americans" not in result.get("text", ""):
+              raise SystemExit("ARM64 smoke-test transcript did not match JFK")
+
+          print(f"ARM64 model smoke test passed with {len(words)} timed words")
+          PY
+
       - name: Stage Windows package
         if: runner.os == 'Windows'
         shell: pwsh
@@ -82,9 +134,17 @@ jobs:
         shell: bash
         run: |
           package="crisperwhisper-${RELEASE_TAG}-${{ matrix.platform }}-${{ matrix.variant }}"
+          docs_root="."
+          if [[ -d release-docs ]]; then
+            docs_root="release-docs"
+          fi
           mkdir -p "package/${package}/samples"
           cp "${{ matrix.executable }}" "package/${package}/"
-          cp README.md CPP.md BUILD_LINUX.md LICENSE crisperwhispercpp.png \
+          cp "${docs_root}/README.md" \
+            "${docs_root}/CPP.md" \
+            "${docs_root}/BUILD_LINUX.md" \
+            "${docs_root}/LICENSE" \
+            "${docs_root}/crisperwhispercpp.png" \
             "package/${package}/"
           cp samples/jfk.wav samples/README.md samples/LICENSE.whisper.cpp \
             "package/${package}/samples/"
