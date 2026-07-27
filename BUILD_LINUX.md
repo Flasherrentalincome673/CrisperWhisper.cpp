@@ -10,11 +10,12 @@ transcription does not require Python. Python is only needed when converting
 an original checkpoint yourself; preconverted models are available from
 [`drbaph/CrisperWhisper2.0-GGML`](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
 
-Prebuilt x86-64 portable and AVX2 CPU ZIPs, plus an ARM64 portable CPU ZIP,
-are published on
+Prebuilt x86-64 portable, AVX2 CPU, CUDA, and ARM64 portable CPU ZIPs are
+published on
 [GitHub Releases](https://github.com/Saganaki22/CrisperWhisper.cpp/releases).
-Linux CUDA remains a native source build until the Linux CUDA archive has been
-built and verified on Linux. No Docker workflow is required by this guide.
+The Linux CUDA package includes its required CUDA user-space libraries, so
+only a compatible NVIDIA driver is needed at runtime. No Docker or local
+virtualization workflow is required by this guide.
 
 ## Supported targets
 
@@ -188,8 +189,26 @@ ctest --test-dir build --output-on-failure
 <details>
 <summary><strong>NVIDIA CUDA build</strong></summary>
 
-Install a CUDA toolkit compatible with your NVIDIA driver using NVIDIA's
-distribution-specific instructions. Confirm:
+For the prebuilt universal RTX 30/40/50 package, download and extract
+`crisperwhisper-v1.1.1-linux-x64-cuda-rtx30-40-50.zip`. It bundles the CUDA
+12.8 Runtime, cuBLAS, cuBLASLt, and nvJitLink libraries. A compatible NVIDIA
+driver is required, but the CUDA Toolkit is not:
+
+```bash
+nvidia-smi
+./crisper-whisper \
+  --model ./ggml-crisperwhisper-turbo-f16.bin \
+  --file ./samples/jfk.wav \
+  --mode verbatim \
+  --language en
+```
+
+The release executable includes compute capabilities 8.6, 8.9, and 12.0 for
+RTX 30, 40, and 50-series GPUs. The same package also retains an AVX2 CPU
+fallback, selectable with `--cpu`.
+
+To compile it yourself instead, install a CUDA toolkit compatible with your
+NVIDIA driver using NVIDIA's distribution-specific instructions. Confirm:
 
 ```bash
 nvidia-smi

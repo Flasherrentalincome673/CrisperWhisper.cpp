@@ -15,6 +15,7 @@ more than once near a 30-second chunk boundary.
 ### Native ZIPs
 
 - Windows x64 CUDA for RTX 30, 40, and 50 series
+- Linux x64 CUDA for RTX 30, 40, and 50 series
 - Windows x64 CPU portable
 - Windows x64 CPU AVX2
 - Linux x64 CPU portable
@@ -24,7 +25,9 @@ more than once near a 30-second chunk boundary.
 The Linux packages are built on Ubuntu 22.04. The GNU C++ runtime is linked
 statically, and the release rejects binaries requiring GLIBC newer than 2.35.
 The ARM64 package has been validated on an Orange Pi 5 Pro running Ubuntu
-22.04.
+22.04. The Linux CUDA ZIP bundles the CUDA 12.8 Runtime, cuBLAS, cuBLASLt, and
+nvJitLink user-space libraries. It requires a compatible NVIDIA driver but
+does not require the CUDA Toolkit, Docker, or virtualization.
 
 ### Models and license
 

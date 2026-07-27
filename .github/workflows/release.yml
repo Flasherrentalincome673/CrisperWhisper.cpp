@@ -270,13 +270,163 @@ jobs:
           path: package/*.zip
           if-no-files-found: error
 
-  publish:
-    needs: [cpu-packages, cuda-package]
-    runs-on: ubuntu-latest
+  linux-cuda-package:
+    runs-on: ubuntu-22.04
+    name: linux-x64 / CUDA RTX 30-40-50
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
+
+      - name: Check out current release documentation
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || env.RELEASE_TAG }}
+          path: .release-metadata
+
+      - name: Install CUDA Toolkit 12.8
+        uses: Jimver/cuda-toolkit@3d45d157f327c09c04b50ee6ccdea2d9d017ec76 # v0.2.35
+        with:
+          cuda: "12.8.1"
+          method: network
+          sub-packages: >-
+            ["nvcc", "cudart", "cudart-dev", "driver-dev", "cccl",
+            "nvjitlink", "nvjitlink-dev"]
+          non-cuda-sub-packages: >-
+            ["libcublas", "libcublas-dev"]
+          use-github-cache: false
+          use-local-cache: false
+          log-file-suffix: linux-cuda-12.8.1
+
+      - name: Install packaging tool
+        shell: bash
+        run: sudo apt-get install --yes patchelf
+
+      - name: Build and test Linux CUDA release
+        shell: bash
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCRISPERWHISPER_CUDA=ON \
+            -DCRISPERWHISPER_CPU_PROFILE=balance \
+            -DCRISPERWHISPER_BUILD_TESTS=ON \
+            -DCRISPERWHISPER_BUILD_BENCHMARKS=OFF \
+            -DCMAKE_CUDA_ARCHITECTURES="86;89;120" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++"
+          cmake --build build --config Release --parallel
+          ctest --test-dir build -C Release --output-on-failure
+
+      - name: Stage and verify Linux CUDA package
+        shell: bash
+        run: |
+          package="crisperwhisper-${RELEASE_TAG}-linux-x64-cuda-rtx30-40-50"
+          package_dir="package/${package}"
+          mkdir -p "${package_dir}/lib" "${package_dir}/samples"
+
+          cp build/bin/crisper-whisper "${package_dir}/"
+          cp .release-metadata/README.md \
+            .release-metadata/BUILD_LINUX.md \
+            "${package_dir}/"
+          cp CPP.md \
+            LICENSE \
+            crisperwhispercpp.png \
+            "${package_dir}/"
+          cp samples/jfk.wav samples/README.md samples/LICENSE.whisper.cpp \
+            "${package_dir}/samples/"
+
+          cuda_library_dir="${CUDA_PATH}/targets/x86_64-linux/lib"
+          for soname in \
+            libcudart.so.12 \
+            libcublas.so.12 \
+            libcublasLt.so.12 \
+            libnvJitLink.so.12
+          do
+            source_path="$(
+              find "${cuda_library_dir}" -name "${soname}" -print -quit
+            )"
+            if [[ -z "${source_path}" ]]; then
+              echo "Required CUDA runtime library was not found: ${soname}" >&2
+              exit 1
+            fi
+            cp -L "${source_path}" "${package_dir}/lib/${soname}"
+          done
+
+          cat > "${package_dir}/NVIDIA-CUDA-RUNTIME-NOTICE.txt" <<'EOF'
+          This package includes NVIDIA CUDA Runtime, cuBLAS, cuBLASLt, and
+          nvJitLink redistributable components. Those files remain governed by
+          the NVIDIA CUDA Toolkit End User License Agreement:
+          https://docs.nvidia.com/cuda/eula/index.html
+
+          An NVIDIA display driver compatible with CUDA 12.8 is required.
+          The CUDA Toolkit is not required to run this prebuilt package.
+          EOF
+
+          patchelf --force-rpath \
+            --set-rpath '$ORIGIN/lib' \
+            "${package_dir}/crisper-whisper"
+
+          dependency_report="$(
+            env -u LD_LIBRARY_PATH ldd "${package_dir}/crisper-whisper"
+          )"
+          printf '%s\n' "${dependency_report}"
+          if grep -q "not found" <<<"${dependency_report}"; then
+            echo "The packaged executable has an unresolved dependency." >&2
+            exit 1
+          fi
+          for soname in \
+            libcudart.so.12 \
+            libcublas.so.12 \
+            libcublasLt.so.12
+          do
+            if ! grep -F "${package_dir}/lib/${soname}" \
+              <<<"${dependency_report}" >/dev/null
+            then
+              echo "${soname} did not resolve from the package." >&2
+              exit 1
+            fi
+          done
+
+          if ldd "${package_dir}/crisper-whisper" | grep -q "libstdc++"; then
+            echo "The Linux CUDA executable depends on dynamic libstdc++." >&2
+            exit 1
+          fi
+
+          max_glibc="$(
+            readelf --version-info "${package_dir}/crisper-whisper" |
+              grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' |
+              sort -Vu |
+              tail -1
+          )"
+          echo "Maximum required executable GLIBC symbol: ${max_glibc}"
+          if [[ "$(
+            printf '%s\n' "GLIBC_2.35" "${max_glibc}" |
+              sort -V |
+              tail -1
+          )" != "GLIBC_2.35" ]]; then
+            echo "Linux CUDA release requires newer than GLIBC 2.35." >&2
+            exit 1
+          fi
+
+          env -u LD_LIBRARY_PATH \
+            "${package_dir}/crisper-whisper" --help >/dev/null
+          (
+            cd package
+            cmake -E tar cf "${package}.zip" --format=zip "${package}"
+          )
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-x64-cuda-rtx30-40-50
+          path: package/*.zip
+          if-no-files-found: error
+
+  publish:
+    needs: [cpu-packages, cuda-package, linux-cuda-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || env.RELEASE_TAG }}
 
       - uses: actions/download-artifact@v8
         with:
@@ -289,5 +439,6 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           body_path: RELEASE_NOTES.md
+          overwrite_files: true
           files: |
             release-assets/*.zip

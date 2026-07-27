@@ -66,14 +66,17 @@ from [Hugging Face](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
 | Package | Intended system |
 | --- | --- |
 | `crisperwhisper-v1.1.1-windows-x64-cuda-rtx30-40-50.zip` | RTX 3090, 4090, 5090, and compatible NVIDIA GPUs; includes CPU fallback |
+| `crisperwhisper-v1.1.1-linux-x64-cuda-rtx30-40-50.zip` | Ubuntu 22.04+ x64 with an RTX 30, 40, or 50-series GPU; includes CUDA runtime libraries and CPU fallback |
 | `crisperwhisper-v1.1.1-windows-x64-cpu-portable.zip` | Broad x64 CPU compatibility |
 | `crisperwhisper-v1.1.1-windows-x64-cpu-avx2.zip` | Faster general build for AVX2-capable x64 CPUs |
 | `crisperwhisper-v1.1.1-linux-x64-cpu-portable.zip` | Broad Linux x64 CPU compatibility |
 | `crisperwhisper-v1.1.1-linux-x64-cpu-avx2.zip` | Faster Linux build for AVX2-capable x64 CPUs |
 | `crisperwhisper-v1.1.1-linux-arm64-cpu-portable.zip` | Ubuntu 22.04+ ARM64 CPU build, validated on an Orange Pi 5 Pro |
 
-Linux CUDA remains a source build until a Linux-built package is verified.
-No model file is duplicated inside a GitHub archive.
+The Linux CUDA ZIP bundles the CUDA 12.8 Runtime, cuBLAS, cuBLASLt, and
+nvJitLink user-space libraries. It needs a compatible NVIDIA driver but does
+not require the CUDA Toolkit, Docker, or virtualization. No model file is
+duplicated inside a GitHub archive.
 
 ## RTX 5090 benchmark
 
@@ -633,10 +636,11 @@ the Turbo GGML model and run the 55-second, five-repetition timestamped JFK
 regression before packaging. Linux release jobs reject binaries requiring
 newer than GLIBC 2.35 and statically link the GNU C++ runtime. The ARM64 ZIP
 has also been validated on an Orange Pi 5 Pro running Ubuntu 22.04. Windows
-ARM64 and ARM CUDA/Jetson are not supported in v1.1.1. The Windows CUDA ZIP is
-built for compute capabilities 8.6, 8.9, and 12.0; runtime inference should
-also be tested on the intended GPU because hosted CI does not provide an
-NVIDIA GPU.
+ARM64 and ARM CUDA/Jetson are not supported in v1.1.1. The Windows and Linux
+CUDA ZIPs are built for compute capabilities 8.6, 8.9, and 12.0. Hosted CI
+verifies compilation, unit tests, dependency bundling, ABI compatibility, and
+CLI startup; runtime inference should also be tested on the intended GPU
+because the hosted runners do not provide an NVIDIA GPU.
 
 A functional model test should verify:
 
