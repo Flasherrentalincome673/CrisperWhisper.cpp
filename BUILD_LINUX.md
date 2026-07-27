@@ -29,9 +29,10 @@ Primary target:
 Experimental target:
 
 - Linux ARM64 CPU with the `portable` profile
-- Native compile/unit-test CI on `ubuntu-24.04-arm`
-- Small-model timestamped inference smoke test on the native ARM64 runner
+- Native compile/unit-test CI on `ubuntu-22.04-arm`
+- Turbo-model timestamped inference smoke test on the native ARM64 runner
 - Prebuilt `linux-arm64-cpu-portable` release archive
+- GLIBC 2.35 compatibility floor for Ubuntu 22.04-era systems
 
 Linux ARM64 remains experimental pending testing on a wider range of boards,
 including Orange Pi. Windows ARM64 and ARM CUDA/Jetson are not v1.1.0 targets.
@@ -160,8 +161,9 @@ The CPU profile can be selected independently:
 ```
 
 On Linux ARM64, use `portable`. It is natively compiled and unit-tested in CI,
-and the release workflow runs a Small-model timestamped inference smoke test.
-Board-specific performance and compatibility remain experimental:
+and the release workflow runs a Turbo-model timestamped inference smoke test.
+Release binaries are built on Ubuntu 22.04 and reject dependencies newer than
+GLIBC 2.35. Board-specific performance and compatibility remain experimental:
 
 ```bash
 ./scripts/build.sh --cpu --cpu-profile portable

@@ -16,7 +16,7 @@ dependency.
 - CUDA acceleration, including RTX 50-series GPUs.
 - CPU fallback.
 - Experimental Linux ARM64 portable CPU release with native compilation,
-  unit tests, and a Small-model timestamped inference smoke test.
+  unit tests, and a Turbo-model timestamped inference smoke test.
 - Audio longer than 30 seconds using 30-second windows, 26-second stride,
   12-word continuation context, and boundary re-coverage.
 - Verbatimize prompts.
@@ -166,8 +166,9 @@ You can make the choice explicit:
 
 Linux ARM64 CPU builds are experimental. Use the portable profile; the
 repository builds and unit-tests it on a native GitHub ARM64 runner. ARM64
-release jobs also run the Small model against `samples/jfk.wav` with supervised
-word timestamps before packaging:
+release jobs also run the Turbo model against `samples/jfk.wav` with
+supervised word timestamps before packaging. Release binaries target Ubuntu
+22.04-era GLIBC 2.35 and statically link the GNU C++ runtime:
 
 ```bash
 ./scripts/build.sh --cpu --cpu-profile portable

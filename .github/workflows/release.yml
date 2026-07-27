@@ -28,26 +28,31 @@ jobs:
             executable: build/bin/Release/crisper-whisper.exe
             profile: portable
             variant: cpu-portable
+            linker_flags: ""
           - os: windows-latest
             platform: windows-x64
             executable: build/bin/Release/crisper-whisper.exe
             profile: balance
             variant: cpu-avx2
-          - os: ubuntu-latest
+            linker_flags: ""
+          - os: ubuntu-22.04
             platform: linux-x64
             executable: build/bin/crisper-whisper
             profile: portable
             variant: cpu-portable
-          - os: ubuntu-latest
+            linker_flags: -static-libgcc -static-libstdc++
+          - os: ubuntu-22.04
             platform: linux-x64
             executable: build/bin/crisper-whisper
             profile: balance
             variant: cpu-avx2
-          - os: ubuntu-24.04-arm
+            linker_flags: -static-libgcc -static-libstdc++
+          - os: ubuntu-22.04-arm
             platform: linux-arm64
             executable: build/bin/crisper-whisper
             profile: portable
             variant: cpu-portable
+            linker_flags: -static-libgcc -static-libstdc++
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }} / ${{ matrix.profile }}
     steps:
@@ -74,6 +79,7 @@ jobs:
           -DCRISPERWHISPER_BUILD_TESTS=ON
           -DCRISPERWHISPER_BUILD_BENCHMARKS=OFF
           -DCRISPERWHISPER_STATIC_MSVC_RUNTIME=ON
+          -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.linker_flags }}"
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -81,14 +87,43 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
-      - name: Download ARM64 smoke-test model
+      - name: Verify Linux release ABI
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          binary="${{ matrix.executable }}"
+          ldd "${binary}"
+
+          if ldd "${binary}" | grep -q "libstdc++"; then
+            echo "The Linux release still dynamically depends on libstdc++." >&2
+            exit 1
+          fi
+
+          max_glibc="$(
+            readelf --version-info "${binary}" |
+              grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' |
+              sort -Vu |
+              tail -1
+          )"
+          echo "Maximum required GLIBC symbol: ${max_glibc}"
+
+          if [[ "$(
+            printf '%s\n' "GLIBC_2.35" "${max_glibc}" |
+              sort -V |
+              tail -1
+          )" != "GLIBC_2.35" ]]; then
+            echo "Linux release requires newer than GLIBC 2.35." >&2
+            exit 1
+          fi
+
+      - name: Download ARM64 Turbo smoke-test model
         if: matrix.platform == 'linux-arm64'
         shell: bash
         run: |
           mkdir -p .arm-smoke
           curl --location --fail --retry 3 \
-            --output .arm-smoke/ggml-crisperwhisper-small-f16.bin \
-            "https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-small-f16.bin?download=true"
+            --output .arm-smoke/ggml-crisperwhisper-turbo-f16.bin \
+            "https://huggingface.co/drbaph/CrisperWhisper2.0-GGML/resolve/main/ggml-crisperwhisper-turbo-f16.bin?download=true"
 
       - name: Run ARM64 model inference smoke test
         if: matrix.platform == 'linux-arm64'
@@ -96,7 +131,7 @@ jobs:
         run: |
           test "$(uname -m)" = "aarch64"
           "${{ matrix.executable }}" \
-            --model .arm-smoke/ggml-crisperwhisper-small-f16.bin \
+            --model .arm-smoke/ggml-crisperwhisper-turbo-f16.bin \
             --file samples/jfk.wav \
             --mode verbatim \
             --language en \
@@ -114,9 +149,9 @@ jobs:
           if any(float(word["start"]) > float(word["end"]) for word in words):
               raise SystemExit("ARM64 smoke test emitted an invalid word timestamp")
           if "fellow Americans" not in result.get("text", ""):
-              raise SystemExit("ARM64 smoke-test transcript did not match JFK")
+              raise SystemExit("ARM64 Turbo smoke-test transcript did not match JFK")
 
-          print(f"ARM64 model smoke test passed with {len(words)} timed words")
+          print(f"ARM64 Turbo smoke test passed with {len(words)} timed words")
           PY
 
       - name: Stage Windows package

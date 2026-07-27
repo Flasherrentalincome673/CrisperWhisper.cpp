@@ -42,7 +42,7 @@ ready-to-run GGML models are available from the link above.
 | --- | --- |
 | Windows 10/11 x64 | Supported |
 | Linux x86-64 | Supported |
-| Linux ARM64 CPU | Experimental portable release; native model smoke-test CI |
+| Linux ARM64 CPU | Experimental Ubuntu 22.04+ release; native Turbo smoke-test CI |
 | NVIDIA CUDA | RTX 30 / 40 / 50 series |
 | CPU-only inference | Portable, balanced AVX2, and native-fast profiles |
 | Verbatim transcription | Supported |
@@ -70,7 +70,7 @@ from [Hugging Face](https://huggingface.co/drbaph/CrisperWhisper2.0-GGML).
 | `crisperwhisper-v1.1.0-windows-x64-cpu-avx2.zip` | Faster general build for AVX2-capable x64 CPUs |
 | `crisperwhisper-v1.1.0-linux-x64-cpu-portable.zip` | Broad Linux x64 CPU compatibility |
 | `crisperwhisper-v1.1.0-linux-x64-cpu-avx2.zip` | Faster Linux build for AVX2-capable x64 CPUs |
-| `crisperwhisper-v1.1.0-linux-arm64-cpu-portable.zip` | Experimental Linux ARM64 CPU build, including Orange Pi |
+| `crisperwhisper-v1.1.0-linux-arm64-cpu-portable.zip` | Experimental Linux ARM64 CPU build for GLIBC 2.35+ systems, including Ubuntu 22.04 Orange Pi |
 
 Linux CUDA remains a source build until a Linux-built package is verified.
 No model file is duplicated inside a GitHub archive.
@@ -625,13 +625,15 @@ ctest --test-dir build --output-on-failure
 ```
 
 The repository includes a six-job x86-64 CPU matrix covering portable,
-balanced, and fast profiles on both `windows-latest` and `ubuntu-latest`, plus
-a native `ubuntu-24.04-arm` portable ARM64 job. ARM64 release builds also
-download the Small GGML model and run a timestamped JFK transcription before
-packaging. Linux ARM64 remains experimental pending broader device testing,
-including Orange Pi. Windows ARM64 and ARM CUDA/Jetson are not supported in
-v1.1.0. CUDA execution should also be tested on the intended GPU architecture
-because standard hosted CI runners do not provide NVIDIA GPUs.
+balanced, and fast profiles on both `windows-latest` and `ubuntu-22.04`, plus
+a native `ubuntu-22.04-arm` portable ARM64 job. ARM64 release builds download
+the Turbo GGML model and run a timestamped JFK transcription before packaging.
+Linux release jobs reject binaries requiring newer than GLIBC 2.35 and
+statically link the GNU C++ runtime. Linux ARM64 remains experimental pending
+broader device testing, including Orange Pi. Windows ARM64 and ARM CUDA/Jetson
+are not supported in v1.1.0. CUDA execution should also be tested on the
+intended GPU architecture because standard hosted CI runners do not provide
+NVIDIA GPUs.
 
 A functional model test should verify:
 

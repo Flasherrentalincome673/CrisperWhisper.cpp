@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-22.04, windows-latest]
         cpu-profile: [portable, balance, fast]
     runs-on: ${{ matrix.os }}
     name: CPU ${{ matrix.cpu-profile }} / ${{ matrix.os }}
@@ -50,8 +50,8 @@ jobs:
         run: ctest --test-dir build -C Release --output-on-failure
 
   arm64-build:
-    runs-on: ubuntu-24.04-arm
-    name: ARM64 CPU portable / ubuntu-24.04
+    runs-on: ubuntu-22.04-arm
+    name: ARM64 CPU portable / ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Configure
